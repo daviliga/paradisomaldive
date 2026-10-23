@@ -296,6 +296,20 @@ h1 { margin: 0; font-family: var(--display); font-weight: 700; font-size: 30px; 
 .relbar { position: relative; flex: 1; min-width: 50px; height: 6px; border-radius: 3px; background: rgba(255,255,255,.08); }
 .relbar i { position: absolute; top: 0; bottom: 0; border-radius: 3px; }
 .btn.sm { padding: 7px 12px; font-size: 13px; margin-left: auto; }
+.seg { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.seg button { display: grid; gap: 2px; padding: 10px 6px; border-radius: 12px; border: 1px solid var(--line); background: rgba(255,255,255,.05); color: var(--ink); font: 800 14px var(--body); cursor: pointer; }
+.seg button small { font-size: 11px; color: var(--muted); font-weight: 700; }
+.seg button.on { background: rgba(91,140,255,.2); border-color: var(--accent); }
+.meterbar { position: relative; height: 10px; border-radius: 5px; background: rgba(255,255,255,.08); }
+.meterbar i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 5px; background: linear-gradient(90deg, #ff5d6c, #f5c451 40%, #3ddc97); }
+.meterbar em { position: absolute; top: -3px; width: 3px; height: 16px; border-radius: 2px; background: #fff; }
+input.wide { width: 100%; accent-color: var(--accent); }
+.drow:disabled { opacity: .55; cursor: default; }
+.drow.tech.have { opacity: .7; }
+.drow.tech.have .rv { color: var(--peace); }
+.rescard .row { gap: 6px; } .rescard .btn.sm { margin-left: 0; flex: 1; }
+.spy { display: grid; gap: 6px; }
+.spy .drow { flex-wrap: wrap; } .spy .drow .sub { white-space: normal; flex-basis: 100%; order: 3; }
 #layerBtn { width: 44px !important; height: 44px !important; }
 #nukeBtn { position: fixed; z-index: 6; height: 44px; padding: 0 11px 0 9px; border-radius: 999px; display: flex; align-items: center; gap: 4px; bottom: calc(env(safe-area-inset-bottom, 0px) + 16px); left: calc(max(14px, env(safe-area-inset-left, 0px)) + 50px); color: #e9f9b8; font: 800 15px var(--body); cursor: pointer; border-color: rgba(212,242,90,.45); }
 #nukeBtn svg { width: 20px; height: 20px; color: #d4f25a; }
@@ -433,6 +447,29 @@ const TANK_VAL = 60, TANK_COST = 15, TANK_BATCH = 10;     // a tank fights like 
 const SUB_COST = 80, CAR_COST = 220, CAR_CAP = 8;         // submarines, aircraft carriers (8 planes each)
 const AA_COST = [50, 80], ABM_COST = 160, ABM_RANGE = 170; // anti-air levels, anti-missile shield and its reach
 // starting submarines, carriers and technologies of the main powers
+// research tree: cost in research points, prerequisite, what it does
+const TECHS = {
+  inf2: { name: 'Fanteria moderna', cost: 90, what: '+15% forza della fanteria' },
+  log: { name: 'Logistica', cost: 90, what: 'truppe di terra più veloci (+20%, carri +70%)' },
+  agri: { name: 'Agricoltura intensiva', cost: 70, what: '+30% produzione di cibo' },
+  tank2: { name: 'Carri di nuova generazione', cost: 120, what: 'ogni carro vale il 25% in più' },
+  aa2: { name: 'Contraerea avanzata', cost: 100, what: 'contraerea fino al livello 2, più precisa' },
+  subs: { name: 'Sottomarini', cost: 110, what: 'puoi costruire sottomarini nei porti' },
+  heavy: { name: 'Bombardieri pesanti', cost: 120, what: '+40% danni dei bombardamenti' },
+  ind: { name: 'Industria avanzata', cost: 150, what: '+15% rendita delle province, +acciaio' },
+  spy: { name: 'Servizi segreti', cost: 90, what: 'spionaggio più efficace e più economico' },
+  lrm: { name: 'Missili a lungo raggio', cost: 140, what: 'raggio dei missili +50%' },
+  carrier: { name: 'Portaerei', cost: 180, need: 'subs', what: 'portaerei con 8 aerei a bordo' },
+  stealth: { name: 'Aerei stealth', cost: 170, need: 'heavy', what: 'la contraerea nemica abbatte la metà' },
+  abm: { name: 'Scudo antimissile', cost: 200, need: 'aa2', what: 'intercetta missili (60%) e testate (35%)' },
+};
+// natural resources: oil producers and steel makers (per province, per month)
+const OIL = { SA: 3, RU: 1.5, US: 1, IR: 2, IQ: 3, AE: 3, KW: 4, VE: 2, NG: 1.5, CA: 1, NO: 2, KZ: 1, QA: 4, LY: 2, DZ: 1.2, AO: 1.5, BR: 0.5, MX: 0.8, CN: 0.3, AZ: 2, OM: 2, GB: 0.4, EG: 0.4, ID: 0.4, MY: 0.6, CO: 0.5, EC: 0.8, TM: 1.5, GA: 1, CG: 1, BN: 3, SS: 1 };
+const STEEL = { CN: 2, IN: 1.2, JP: 2, US: 0.8, RU: 0.8, KR: 3, DE: 1.5, TR: 1.2, BR: 0.8, IR: 0.8, IT: 1, TW: 2, UA: 1, VN: 0.8, FR: 0.8, ES: 0.8, MX: 0.6, CA: 0.4, PL: 0.8, AU: 0.5, SE: 0.8, AT: 1, CZ: 1, BE: 1.5, NL: 1, ZA: 0.6 };
+const RES_NAMES = { oil: 'Petrolio', steel: 'Acciaio', food: 'Cibo' };
+const BASE_PRICE = { oil: 4, steel: 3, food: 2 };
+const STEEL_USE = { tnk: 5, fgt: 4, bmb: 5, ship: 8, sub: 10, car: 30, mis: 2 };
+const TAX = [{ name: 'Basse', mult: 0.8, stab: 12 }, { name: 'Normali', mult: 1, stab: 0 }, { name: 'Alte', mult: 1.25, stab: -14 }];
 const START_SUB = { US: 8, RU: 6, CN: 6, GB: 3, FR: 3, IN: 2, JP: 3, KR: 2, KP: 3, IR: 1, TR: 2, DE: 1, IT: 2, IL: 1, PK: 1, AU: 1, ES: 1, BR: 1 };
 const START_CAR = { US: 5, CN: 2, GB: 1, FR: 1, IN: 1, RU: 1, IT: 1 };
 const START_TECH = {
@@ -687,19 +724,23 @@ function initialState() {
         W.provs.filter(q => q.country === x.id && !q.cap).sort((a, b) => b.pop - a.pop).slice(0, 2).forEach(q => { p[q.id].apt = 1; });
       }
     }
-    return { gold: 60, alive: x.size > 0, capital: x.capital, wars: [], since: {}, allies: [], nukes: nk, prog: nk ? 0 : -1, tech: (START_TECH[WD.countries[x.id].a] || []).slice() };
+    return { gold: 60, alive: x.size > 0, capital: x.capital, wars: [], since: {}, allies: [], nukes: nk, prog: nk ? 0 : -1, tech: (START_TECH[WD.countries[x.id].a] || []).slice(),
+      tax: 1, draft: false, rb: 10, rp: 0, res: '', stab: 70, mood: 0, sanc: 0, intel: {}, stock: { oil: 40, steel: 40, food: 40 }, short: {} };
   });
   const rel = W.nations.map(() => Math.round(Math.random() * 30 - 10));
-  return { v: 6, time: 0, day: 0, player: -1, truce: {}, asked: {}, retal: [], moves: [], units: [], battles: [], nextMove: 1, ws: {}, hist: [], rel, autoPause: true, p, n };
+  return { v: 6, time: 0, day: 0, player: -1, truce: {}, asked: {}, retal: [], moves: [], units: [], battles: [], nextMove: 1, ws: {}, hist: [], rel, autoPause: true, market: { ...BASE_PRICE }, p, n };
 }
 function serialize() {
-  return { ...G, p: G.p.map(x => [x.owner, x.army, x.fgt, x.bmb, x.ships, x.eco, x.fort, x.rad, x.hit, x.sup, x.bar, x.apt, x.port, x.mis, x.tnk, x.sub, x.car, x.aa, x.abm, Math.round(x.xp * 100) / 100]) };
+  return { ...G, p: G.p.map(x => [x.owner, x.army, x.fgt, x.bmb, x.ships, x.eco, x.fort, x.rad, x.hit, x.sup, x.bar, x.apt, x.port, x.mis, x.tnk, x.sub, x.car, x.aa, x.abm, Math.round(x.xp * 100) / 100, x.rev || 0]) };
 }
 function restore(s) {
   if (!s || s.v !== 6) return false;
   G = { ...s, retal: s.retal || [], asked: s.asked || {}, battles: s.battles || [], p: s.p.map(a => ({ owner: a[0], army: a[1], fgt: a[2], bmb: a[3], ships: a[4], eco: a[5], fort: a[6], rad: a[7], hit: a[8], sup: a[9], bar: a[10], apt: a[11], port: a[12], mis: a[13] || 0,
-    tnk: a[14] || 0, sub: a[15] || 0, car: a[16] || 0, aa: a[17] || 0, abm: a[18] || 0, xp: a[19] || 0 })), units: s.units || [] };
-  for (const x of G.n) x.tech = x.tech || [];
+    tnk: a[14] || 0, sub: a[15] || 0, car: a[16] || 0, aa: a[17] || 0, abm: a[18] || 0, xp: a[19] || 0, rev: a[20] || 0 })), units: s.units || [], market: s.market || { ...BASE_PRICE } };
+  for (const x of G.n) {
+    x.tech = x.tech || []; x.intel = x.intel || {}; x.stock = x.stock || { oil: 40, steel: 40, food: 40 }; x.short = x.short || {};
+    for (const [k, v] of Object.entries({ tax: 1, draft: false, rb: 10, rp: 0, res: '', stab: 70, mood: 0, sanc: 0 })) if (x[k] === undefined) x[k] = v;
+  }
   ownVer++; bordersDirty = true; staticDirty = true;
   return true;
 }
@@ -741,25 +782,35 @@ const truceLeft = (a, b) => Math.max(0, (G.truce[tkey(a, b)] || 0) - G.day);
 const radLeft = i => Math.max(0, G.p[i].rad - G.day);
 const blockaded = i => !!W.provs[i].sp && G.units.some(u => u.kind === 'fleet' && atWar(u.owner, G.p[i].owner) && ptDist([u.x, u.y], W.provs[i].sp) < 55);
 function provIncome(i) {
-  if (radLeft(i)) return 0;
+  if (radLeft(i) || G.p[i].rev) return 0;
   const base = 2 + G.p[i].eco * 2 + (G.n[G.p[i].owner].capital === i ? 6 : 0);
   return blockaded(i) ? Math.floor(base / 2) : base;
+}
+const sanctioned = n => (G.n[n].sanc || 0) > G.day;
+// what multiplies a nation's income: taxes, protests, sanctions, industry
+function incomeMult(n) {
+  const x = G.n[n];
+  return TAX[x.tax ?? 1].mult * (x.stab < 35 ? 0.85 : 1) * (sanctioned(n) ? 0.75 : 1) * (hasTech(n, 'ind') ? 1.15 : 1);
 }
 function income(n) {
   let inc = 0;
   for (const i of provsOf(n)) inc += provIncome(i);
+  inc = Math.round(inc * incomeMult(n));
+  const rd = n === G.player ? Math.round(inc * (G.n[n].rb || 0) / 100) : 0;
   const f = forcesOf(n);
   const army = Math.round(f.army / 1000 * 0.8 + f.tnk * 0.05), air = Math.round(f.fgt * 1 + f.bmb * 1.2), navy = Math.round(f.ships * 1.5 + f.sub * 1.5 + f.car * 4);
-  return { inc, upkeep: army + air + navy, army, air, navy, net: inc - army - air - navy };
+  return { inc, upkeep: army + air + navy, army, air, navy, rd, net: inc - army - air - navy - rd };
 }
 const recentlyBombed = i => G.p[i].hit >= 0 && G.day - G.p[i].hit < 6;
 // experience: up to three stars, +10% strength each
 const stars = xp => Math.min(3, Math.floor(xp || 0));
 const xpMult = xp => 1 + 0.1 * stars(xp);
-const tankVal = n => TANK_VAL * (hasTech(n, 'tank2') ? 1.25 : 1);
+const oilMult = n => G.n[n] && G.n[n].short && G.n[n].short.oil ? 0.7 : 1;
+const infMult = n => hasTech(n, 'inf2') ? 1.15 : 1;
+const tankVal = n => TANK_VAL * (hasTech(n, 'tank2') ? 1.25 : 1) * oilMult(n);
 const hasTech = (n, k) => !!(G.n[n] && G.n[n].tech && G.n[n].tech.includes(k));
-const uStr = u => (u.n + (u.t || 0) * tankVal(u.owner)) * xpMult(u.xp);
-const garrisonStr = i => (G.p[i].army + G.p[i].tnk * tankVal(G.p[i].owner)) * xpMult(G.p[i].xp);
+const uStr = u => (u.n * infMult(u.owner) + (u.t || 0) * tankVal(u.owner)) * xpMult(u.xp);
+const garrisonStr = i => (G.p[i].army * infMult(G.p[i].owner) + G.p[i].tnk * tankVal(G.p[i].owner)) * xpMult(G.p[i].xp);
 const defense = i => (garrisonStr(i) * (1.25 + 0.15 * G.p[i].fort) + unitsIn(i, G.p[i].owner).reduce((s, u) => s + uStr(u), 0) * (1.1 + 0.1 * G.p[i].fort)) * (recentlyBombed(i) ? 0.75 : 1);
 // troops joining a garrison bring their experience with them
 function addGarrison(i, n, t = 0, xp = 0) {
@@ -796,6 +847,9 @@ function addKia(a, b, who, n) { const s = wstat(a, b); s.kia[who] = (s.kia[who] 
 // ---------- diplomacy: war, peace, alliances ----------
 function declareWar(a, b) {
   if (a === b || atWar(a, b) || !G.n[a].alive || !G.n[b].alive) return;
+  // unprovoked: the victim is not fighting `a` or any of its allies
+  const provoked = G.n[b].wars.some(w => allied(a, w));
+  if (!provoked && G.day > 0) unReact(a, b);
   if (allied(a, b)) breakAlliance(a, b, true);
   G.n[a].wars.push(b); G.n[b].wars.push(a);
   G.n[a].since[b] = G.day; G.n[b].since[a] = G.day;
@@ -810,6 +864,18 @@ function declareWar(a, b) {
     if (x === a || atWar(x, a) || allied(x, a) || !G.n[x].alive) continue;
     if (x === G.player) ask(() => showCallToArms(b, a));
     else if (Math.random() < 0.75) declareWar(x, a);
+  }
+}
+function unReact(a, b) {
+  const p = a === G.player ? 0.7 : 0.3;
+  if (Math.random() < p) {
+    G.n[a].sanc = Math.max(G.n[a].sanc || 0, G.day + 240);
+    if (a === G.player) raiseAlert(`L'ONU condanna l'aggressione a ${fullName(b)}: sanzioni per 8 mesi (rendita −25%, commercio più caro).`, G.n[b].capital, false);
+    else if (nearPlayer(a) || nearPlayer(b)) news(`L'ONU impone sanzioni a ${fullName(a)} per l'attacco a ${fullName(b)}.`, '', G.n[a].capital);
+  }
+  if (b === G.player) {
+    G.n[b].gold += 80; relAll(4, [a]);
+    news(`L'ONU condanna l'attacco di ${fullName(a)}: ricevi 80 oro di aiuti internazionali.`, 'good', G.n[b].capital);
   }
 }
 function makePeace(a, b) {
@@ -1045,7 +1111,7 @@ function armyStays(me, to, end, n, t, xp, merge, queue) {
 }
 // ---------- battles last days: reinforcements can join, the result comes at the end ----------
 function battleOdds(b) {
-  const atk = (b.A + b.t * tankVal(b.owner)) * xpMult(b.xp) * b.mult, def = defense(b.prov);
+  const atk = (b.A * infMult(b.owner) + b.t * tankVal(b.owner)) * xpMult(b.xp) * b.mult, def = defense(b.prov);
   return atk / Math.max(1, atk + def);
 }
 function startBattle(m, to, end) {
@@ -1158,7 +1224,7 @@ function resolveAir(m) {
     if (unit) unit.af = Math.max(0, def - lossD); else P.fgt = Math.max(0, def - lossD);
   }
   let killed = 0, what = '';
-  const power = (bmb * 150 + fgt * 25) * (0.7 + Math.random() * 0.6) * (unit ? 1 : 1 - 0.15 * P.aa);
+  const power = (bmb * 150 * (hasTech(me, 'heavy') ? 1.4 : 1) + fgt * 25) * oilMult(me) * (0.7 + Math.random() * 0.6) * (unit ? 1 : 1 - 0.15 * P.aa);
   if (bmb + fgt > 0) {
     if (unit && unit.kind === 'fleet') {
       // bombs find surface ships first, then carriers; submarines are hard to hit
@@ -1244,7 +1310,7 @@ function navalBattle(me, F, pt) {
   const portF = i => ({ n: G.p[i].ships, s: G.p[i].sub, c: G.p[i].car, xp: 0 });
   const def = foes.reduce((s, f) => s + fleetStr(f), 0) + ports.reduce((s, i) => s + fleetStr(portF(i)), 0);
   if (!def) return null;
-  const a = fleetStr(F) * (0.85 + Math.random() * 0.3), d = def * 1.1 * (0.85 + Math.random() * 0.3);
+  const a = fleetStr(F) * oilMult(me) * (0.85 + Math.random() * 0.3), d = def * 1.1 * oilMult(foes[0] ? foes[0].owner : G.p[ports[0]].owner) * (0.85 + Math.random() * 0.3);
   const win = a > d;
   const keepA = win ? Math.max(0.05, 1 - 0.6 * d / a) : 0.3 * a / d;
   const keep = win ? 0 : Math.max(0, 1 - 0.6 * a / d);
@@ -1314,7 +1380,7 @@ function fight(to, A, me, mult = 1, t = 0, xp = 0) {
   const o = G.p[to].owner, guards = unitsIn(to, o), P = G.p[to];
   const D = P.army + guards.reduce((s, u) => s + u.n, 0), DT = P.tnk + guards.reduce((s, u) => s + (u.t || 0), 0);
   if (D + DT <= 0) { G.units = G.units.filter(u => !guards.includes(u)); capture(to, me, 0); return { win: true, left: A, tleft: t, xp, lossA: 0, lossD: 0 }; }
-  const atk = (A + t * tankVal(me)) * xpMult(xp) * mult * (0.85 + Math.random() * 0.3), def = defense(to) * (0.85 + Math.random() * 0.3);
+  const atk = (A * infMult(me) + t * tankVal(me)) * xpMult(xp) * mult * (0.85 + Math.random() * 0.3), def = defense(to) * (0.85 + Math.random() * 0.3);
   if (atk > def) {
     const k = 1 - 0.6 * def / atk;
     const surv = Math.max(10, Math.round(A * k / 10) * 10), tsurv = Math.round(t * Math.min(1, k + (1 - k) * 0.4));
@@ -1342,8 +1408,9 @@ function capture(i, newOwner, army) {
   G.battles = G.battles.filter(b => !(b.prov === i && b.owner === newOwner));
   G.units = G.units.filter(u => !(u.kind === 'army' && u.prov === i && u.owner === old));
   ownVer++; bordersDirty = true; staticDirty = true;
-  if (newOwner === G.player) { conquestFx(i, 'win'); announce('win', pname(i), i); relAdd(old, -3); }
-  else if (old === G.player) { conquestFx(i, 'loss'); announce('loss', pname(i), i); }
+  p.rev = 0;
+  if (newOwner === G.player) { conquestFx(i, 'win'); announce('win', pname(i), i); relAdd(old, -3); G.n[newOwner].mood = Math.min(20, G.n[newOwner].mood + 2); }
+  else if (old === G.player) { conquestFx(i, 'loss'); announce('loss', pname(i), i); G.n[old].mood = Math.max(-25, G.n[old].mood - 4); }
   else conquestFx(i, 'other');
   if (G.n[old].capital === i) {
     const rest = provsOf(old).slice().sort((x, y) => G.p[y].eco - G.p[x].eco || G.p[y].army - G.p[x].army);
@@ -1419,6 +1486,9 @@ function launchNuke(att, target) {
   for (const m of neighborNations(att)) if (m !== G.player && m !== victim && !atWar(m, att) && !allied(m, att) && G.n[m].alive && Math.random() < 0.12) declareWar(m, att);
   if (att === G.player) { relAll(-35); relAdd(victim, -100); }
   staticDirty = true;
+  G.n[att].sanc = Math.max(G.n[att].sanc || 0, G.day + 360);
+  if (att === G.player) news('L\'ONU impone sanzioni durissime per un anno: rendita −25%, commercio più caro.', 'bad');
+  if (victim === G.player) G.n[victim].mood -= 12;
   const where = pname(target);
   if (att === G.player) news(`Testata nucleare su ${where}. Il mondo guarda con orrore.`, 'bad', target);
   else if (victim === G.player) { markAlert(target, 'nuke'); raiseAlert(`${fullName(att)} ha colpito ${where} con un'arma nucleare!`, target, true); const c = W.provs[target].c; centerOn(c[0], c[1], Math.max(cam.s, 0.9), 0.45); }
@@ -1447,6 +1517,13 @@ function aiTick(n) {
   }
   if (!me.alive) return;
 
+  // research: bigger countries gain technologies faster
+  if (Math.random() < 0.012 * (1 + provsOf(n).length / 25)) {
+    const open = Object.keys(TECHS).filter(k => !me.tech.includes(k) && (!TECHS[k].need || me.tech.includes(TECHS[k].need)));
+    if (open.length) me.tech.push(open[Math.floor(Math.random() * open.length)]);
+  }
+  // spies against the player
+  if (G.player >= 0 && (atWar(n, G.player) || relOf(n) < -50) && Math.random() < 0.01) aiSpy(n);
   // diplomacy
   const nb = neighborNations(n);
   if (me.wars.length === 0 && Math.random() < 0.005) {
@@ -1589,6 +1666,150 @@ function aiTick(n) {
   }
 }
 
+function aiSpy(n) {
+  const mine = provsOf(G.player);
+  if (!mine.length) return;
+  const i = mine[Math.floor(Math.random() * mine.length)], P = G.p[i];
+  if (Math.random() < (hasTech(G.player, 'spy') ? 0.5 : 0.3)) { relAdd(n, -10); news(`Catturate spie di ${fullName(n)} a ${pname(i)}.`, 'good', i); return; }
+  if (P.eco > 1 && Math.random() < 0.5) { P.eco--; raiseAlert(`Sabotaggio a ${pname(i)}: l'economia scende a ${P.eco}/5. Sospetti su ${fullName(n)}.`, i, false); }
+  else { const k = Math.round(P.army * 0.15 / 10) * 10; P.army -= k; raiseAlert(`Attentato a ${pname(i)}: persi ${fmt(k)} soldati. Sospetti su ${fullName(n)}.`, i, false); }
+}
+
+// ---------- the home front: stability, research, resources (player) ----------
+function stabFactors(n) {
+  const x = G.n[n], f = [];
+  f.push(['Base', 60]);
+  if (TAX[x.tax].stab) f.push([`Tasse ${TAX[x.tax].name.toLowerCase()}`, TAX[x.tax].stab]);
+  if (x.draft) f.push(['Leva obbligatoria', -10]);
+  if (x.wars.length) f.push([`${x.wars.length} ${x.wars.length === 1 ? 'guerra' : 'guerre'} in corso`, -Math.min(15, x.wars.length * 4)]);
+  if (sanctioned(n)) f.push(['Sanzioni ONU', -8]);
+  if (x.short && x.short.food) f.push(['Carenza di cibo', -15]);
+  const rad = provsOf(n).filter(i => radLeft(i)).length;
+  if (rad) f.push(['Province contaminate', -Math.min(12, rad * 4)]);
+  if (Math.round(x.mood)) f.push([x.mood > 0 ? 'Vittorie recenti' : 'Sconfitte recenti', Math.round(x.mood)]);
+  if (x.gold > 500) f.push(['Casse piene', 5]);
+  if (x.gold <= 0) f.push(['Soldati non pagati', -10]);
+  return f;
+}
+const stabTarget = n => Math.max(0, Math.min(100, stabFactors(n).reduce((s, f) => s + f[1], 0)));
+function homeFront(n) {
+  const x = G.n[n];
+  const t = stabTarget(n), was = x.stab;
+  x.stab = Math.max(0, Math.min(100, x.stab + (t - x.stab) * 0.03));
+  x.mood *= 0.985;
+  if (was >= 35 && x.stab < 35) raiseAlert('Proteste in piazza: la stabilità è sotto 35. La rendita cala del 15%.', x.capital, false);
+  if (was >= 20 && x.stab < 20) raiseAlert('Il paese è sull\'orlo della rivolta: alcune province possono ribellarsi.', x.capital, true);
+  if (x.stab < 20 && G.day % 10 === 0 && Math.random() < 0.35) {
+    const cand = provsOf(n).filter(i => i !== x.capital && !G.p[i].rev);
+    if (cand.length) { const i = cand[Math.floor(Math.random() * cand.length)]; G.p[i].rev = 1; markAlert(i, 'alert'); raiseAlert(`${pname(i)} è in rivolta: non paga tasse e i soldati disertano. Reprimila o alza la stabilità.`, i, false); staticDirty = true; }
+  }
+  if (x.stab >= 35) for (const i of provsOf(n)) if (G.p[i].rev) { G.p[i].rev = 0; news(`La rivolta a ${pname(i)} è finita.`, 'good', i); staticDirty = true; }
+  for (const i of provsOf(n)) if (G.p[i].rev) G.p[i].army = Math.floor(G.p[i].army * 0.99);
+  // research
+  const rpDay = (income(n).rd + 2) / 30 * (hasTech(n, 'ind') ? 1.1 : 1);
+  if (x.res && !x.tech.includes(x.res)) {
+    x.rp += rpDay;
+    if (x.rp >= TECHS[x.res].cost) { x.rp -= TECHS[x.res].cost; x.tech.push(x.res); news(`Ricerca completata: ${TECHS[x.res].name}. ${TECHS[x.res].what[0].toUpperCase() + TECHS[x.res].what.slice(1)}.`, 'good'); x.res = ''; }
+  } else x.rp = Math.min(x.rp + rpDay, 400);
+  if (G.day % 30 === 0) monthlyResources(n);
+}
+// monthly production and consumption of oil, steel and food
+function resourceFlow(n) {
+  const prod = { oil: 0, steel: 0, food: 0 }, use = { oil: 0, steel: 0, food: 0 };
+  let pop = 0;
+  for (const i of provsOf(n)) {
+    const a2 = WD.countries[W.provs[i].country].a, P = G.p[i];
+    if (radLeft(i) || P.rev) continue;
+    pop += W.provs[i].pop;
+    prod.food += Math.max(0.3, Math.min(6, W.provs[i].pop / 1.0e6)) * (hasTech(n, 'agri') ? 1.3 : 1);
+    prod.oil += OIL[a2] || 0;
+    prod.steel += (STEEL[a2] || 0) + (P.eco >= 4 ? 0.4 : 0) + (hasTech(n, 'ind') ? 0.3 : 0);
+  }
+  const f = forcesOf(n);
+  use.food = pop / 2e6 + f.army / 1000 * 0.3;
+  use.oil = (f.fgt * 0.25 + f.bmb * 0.35 + f.ships * 0.4 + f.sub * 0.3 + f.car * 1.5 + f.tnk * 0.03 + provsOf(n).length * 0.15) * 0.5;
+  use.steel = provsOf(n).length * 0.05;
+  for (const k in prod) { prod[k] = Math.round(prod[k] * 10) / 10; use[k] = Math.round(use[k] * 10) / 10; }
+  return { prod, use };
+}
+function monthlyResources(n) {
+  const x = G.n[n], { prod, use } = resourceFlow(n);
+  for (const k of ['oil', 'steel', 'food']) {
+    x.stock[k] = Math.round((x.stock[k] + prod[k] - use[k]) * 10) / 10;
+    const was = x.short[k];
+    x.short[k] = x.stock[k] < 0;
+    if (x.stock[k] < 0) x.stock[k] = 0;
+    if (x.short[k] && !was) raiseAlert(k === 'oil' ? 'Petrolio esaurito: carri, aerei e navi combattono al 70%. Compralo nel Commercio.' : k === 'food' ? 'Cibo esaurito: la stabilità crolla e l\'esercito soffre. Compralo nel Commercio.' : 'Acciaio esaurito: non puoi costruire carri, aerei, navi e missili.', -1, false);
+  }
+  if (x.short.food) for (const i of provsOf(n)) G.p[i].army = Math.floor(G.p[i].army * 0.98);
+  // market prices drift
+  for (const k in G.market) G.market[k] = Math.round(Math.max(BASE_PRICE[k] * 0.5, Math.min(BASE_PRICE[k] * 2.2, G.market[k] * (0.9 + Math.random() * 0.22))) * 10) / 10;
+}
+const buyPrice = k => Math.round(G.market[k] * 10 * (sanctioned(G.player) ? 1.5 : 1));
+const sellPrice = k => Math.round(G.market[k] * 10 * (sanctioned(G.player) ? 0.6 : 0.85));
+function trade(k, buy) {
+  const x = G.n[G.player];
+  if (buy) { if (!spend(buyPrice(k))) return; x.stock[k] += 10; x.short[k] = false; G.market[k] = Math.round(G.market[k] * 1.03 * 10) / 10; }
+  else { if (x.stock[k] < 10) return toast('Ne servono almeno 10.'); x.stock[k] -= 10; x.gold += sellPrice(k); G.market[k] = Math.round(G.market[k] * 0.97 * 10) / 10; }
+  afterAction();
+}
+// steel is needed for heavy equipment (the player's economy only)
+function useSteel(kind) {
+  const need = STEEL_USE[kind] || 0, x = G.n[G.player];
+  if (!need) return true;
+  if (x.stock.steel < need) { toast(`Acciaio insufficiente: ne servono ${need}, ne hai ${Math.floor(x.stock.steel)}. Compralo nel Commercio.`, 'bad'); return false; }
+  x.stock.steel -= need; return true;
+}
+const recruitCost = () => Math.round(RECRUIT_COST * (G.n[G.player].draft ? 0.7 : 1));
+
+// ---------- espionage ----------
+const SPY = {
+  reveal: { name: 'Infiltra', cost: 30, what: 'vedi le sue forze, i sottomarini e le basi per 3 mesi' },
+  sabot: { name: 'Sabotaggio', cost: 60, what: 'colpisce economia, basi o truppe di questa provincia' },
+  steal: { name: 'Ruba tecnologia', cost: 90, what: 'prova a copiare una sua tecnologia' },
+};
+const spyCost = k => Math.round(SPY[k].cost * (hasTech(G.player, 'spy') ? 0.7 : 1));
+function spyAction(k, n, i) {
+  const me = G.player, x = G.n[me];
+  if ((G.asked['sp' + n] || 0) > G.day) return toast('I tuoi agenti in quel paese sono ancora nascosti: riprova più tardi.');
+  if (!spend(spyCost(k))) return;
+  G.asked['sp' + n] = G.day + 20;
+  const bonus = hasTech(me, 'spy') ? 0.15 : 0;
+  const ok = Math.random() < (k === 'reveal' ? 0.85 : k === 'sabot' ? 0.6 : 0.35) + bonus;
+  if (!ok) {
+    relAdd(n, k === 'reveal' ? -10 : -25);
+    news(`I tuoi agenti sono stati scoperti da ${fullName(n)}: rapporti peggiorati.`, 'bad', i);
+    return afterAction();
+  }
+  if (k === 'reveal') { x.intel[n] = G.day + 90; news(`Rete di spie attiva in ${fullName(n)} per 3 mesi: ne vedi forze, basi e sottomarini.`, 'good', i); }
+  else if (k === 'sabot') {
+    const P = G.p[i];
+    const opts = [];
+    if (P.abm) opts.push(() => { P.abm = 0; return 'scudo antimissile distrutto'; });
+    if (P.apt && P.fgt + P.bmb) opts.push(() => { const l = Math.ceil((P.fgt + P.bmb) / 3); P.bmb = Math.max(0, P.bmb - l); return `${l} aerei distrutti a terra`; });
+    if (P.eco > 1) opts.push(() => { P.eco--; return `economia scesa a ${P.eco}/5`; });
+    if (P.mis) opts.push(() => { const l = Math.ceil(P.mis / 2); P.mis -= l; return `${l} lanciamissili distrutti`; });
+    opts.push(() => { const l = Math.round(P.army * 0.2 / 10) * 10; P.army -= l; return `${fmt(l)} soldati persi`; });
+    const r = opts[Math.floor(Math.random() * opts.length)]();
+    news(`Sabotaggio riuscito a ${pname(i)}: ${r}.`, 'good', i);
+  } else {
+    const can = G.n[n].tech.filter(t => !x.tech.includes(t) && (!TECHS[t].need || x.tech.includes(TECHS[t].need)));
+    if (!can.length) news(`${fullName(n)} non ha tecnologie che ti mancano.`, '', i);
+    else { const t = can[Math.floor(Math.random() * can.length)]; x.tech.push(t); if (x.res === t) x.res = ''; news(`Tecnologia rubata a ${fullName(n)}: ${TECHS[t].name}!`, 'good', i); }
+  }
+  afterAction();
+}
+function showSpy(n, i) {
+  showModal(`<div class="eyebrow">Spionaggio</div><h1 style="font-size:24px">${esc(fullName(n))}</h1>
+    <p>Bersaglio: ${esc(pname(i))}. Se gli agenti vengono scoperti i rapporti peggiorano. Dopo un'azione servono 20 giorni prima della successiva in questo paese.</p>
+    <div class="spy">${Object.entries(SPY).map(([k, v]) => `<button class="drow" data-spy="${k}" ${G.n[G.player].gold < spyCost(k) ? 'disabled' : ''}><b>${v.name}</b><span class="sub">${v.what}</span><span class="rv">${spyCost(k)}</span></button>`).join('')}</div>
+    <div class="row"><button class="btn" id="spClose">Chiudi</button></div>`, () => {
+    $('spClose').onclick = hideModal;
+    for (const b of document.querySelectorAll('[data-spy]')) b.onclick = () => { hideModal(); spyAction(b.dataset.spy, n, i); };
+  });
+}
+const hasIntel = n => (G.n[G.player].intel[n] || 0) > G.day;
+
 // ---------- alerts ----------
 const warned = {};
 // pulsing markers on the map for recent events that concern the player
@@ -1628,6 +1849,7 @@ function dailyUpdate() {
       x.gold = 0;
       if (n === G.player && G.day % 10 === 0) news('Casse vuote: i soldati non pagati disertano.', 'bad');
     }
+    if (n === G.player) homeFront(n);
     if (x.prog > 0 && G.day >= x.prog) { x.prog = 0; if (n === G.player) news('Programma nucleare completato: puoi costruire testate.', 'good'); }
     if (n !== G.player && (n + G.day) % AI_EVERY === 0) aiTick(n);
   }
@@ -1683,16 +1905,29 @@ function spend(cost) {
   me.gold -= cost; return true;
 }
 function recruit(i, kind) {
-  const P = G.p[i];
-  if (kind === 'inf' && P.bar && spend(RECRUIT_COST)) addGarrison(i, RECRUIT, 0, 0);
-  else if (kind === 'tnk' && P.bar && spend(TANK_COST)) addGarrison(i, 0, TANK_BATCH, 0);
-  else if (kind === 'sub' && P.port && hasTech(G.player, 'subs') && spend(SUB_COST)) P.sub++;
-  else if (kind === 'car' && P.port && hasTech(G.player, 'carrier') && spend(CAR_COST)) P.car++;
-  else if (kind === 'fgt' && P.apt && spend(FGT_COST)) P.fgt++;
-  else if (kind === 'bmb' && P.apt && spend(BMB_COST)) P.bmb++;
-  else if (kind === 'ship' && P.port && spend(SHIP_COST)) P.ships++;
-  else if (kind === 'mis' && P.bar && spend(MIS_COST)) P.mis++;
+  const P = G.p[i], me = G.player;
+  if (P.rev) { toast(`${pname(i)} è in rivolta: nessuno si arruola. Reprimi la rivolta o alza la stabilità.`, 'bad'); return; }
+  const ok = { inf: P.bar, tnk: P.bar, mis: P.bar, fgt: P.apt, bmb: P.apt, ship: P.port, sub: P.port && hasTech(me, 'subs'), car: P.port && hasTech(me, 'carrier') }[kind];
+  const cost = { inf: recruitCost(), tnk: TANK_COST, mis: MIS_COST, fgt: FGT_COST, bmb: BMB_COST, ship: SHIP_COST, sub: SUB_COST, car: CAR_COST }[kind];
+  if (!ok || G.n[me].gold < cost) { if (ok) toast('Oro insufficiente.', 'bad'); return; }
+  if (!useSteel(kind)) return;
+  spend(cost);
+  if (kind === 'inf') addGarrison(i, RECRUIT, 0, 0);
+  else if (kind === 'tnk') addGarrison(i, 0, TANK_BATCH, 0);
+  else if (kind === 'sub') P.sub++;
+  else if (kind === 'car') P.car++;
+  else if (kind === 'fgt') P.fgt++;
+  else if (kind === 'bmb') P.bmb++;
+  else if (kind === 'ship') P.ships++;
+  else if (kind === 'mis') P.mis++;
   afterAction();
+}
+function repress(i) {
+  const P = G.p[i];
+  if (!P.rev || !spend(40)) return;
+  P.rev = 0; P.army = Math.round(P.army * 0.9 / 10) * 10; G.n[G.player].mood -= 3;
+  news(`Rivolta repressa a ${pname(i)}. Il paese non dimentica.`, '', i);
+  staticDirty = true; afterAction();
 }
 function build(i, k) {
   const P = G.p[i];
@@ -3123,7 +3358,8 @@ function updateHUD() {
   const me = G.player, inc = income(me), x = G.n[me];
   $('topFlag').style.background = nat(me).color;
   $('topName').textContent = nat(me).place;
-  $('topDate').textContent = dateStr(G.day);
+  const st = Math.round(x.stab);
+  $('topDate').innerHTML = `${dateStr(G.day)} · <span class="${st < 35 ? 'neg' : st >= 60 ? 'pos' : ''}">stab. ${st}</span>${sanctioned(me) ? ' · <span class="neg">sanzioni</span>' : ''}`;
   $('nukeCount').textContent = x.nukes;
   $('topGold').innerHTML = `${Math.floor(x.gold)} <small class="${inc.net < 0 ? 'neg' : ''}">${inc.net >= 0 ? '+' : ''}${inc.net}</small>`;
 }
@@ -3296,7 +3532,7 @@ function renderPanel() {
   const i = selected, P = G.p[i], o = P.owner, me = G.player, gold = G.n[me].gold;
   const pr = W.provs[i], mine = o === me;
   const isCap = G.n[o].capital === i;
-  const known = mine || allied(me, o) || atWar(me, o);
+  const known = mine || allied(me, o) || atWar(me, o) || hasIntel(o);
 
   const bld = k => P[k] ? `<span class="bchip on" title="${BUILD[k].name}">${ICON[k]}</span>` : '';
   const forces = `<div class="frow">
@@ -3304,7 +3540,7 @@ function renderPanel() {
       ${P.apt || P.fgt + P.bmb ? `<span class="fc"><i>${ICON.apt}</i>${known ? P.fgt + P.bmb : '?'}</span>` : ''}
       ${P.tnk ? `<span class="fc"><i>${ICON.tnk}</i>${known ? P.tnk : '?'}</span>` : ''}
       ${P.port || P.ships ? `<span class="fc"><i>${ICON.port}</i>${known ? P.ships : '?'}</span>` : ''}
-      ${P.sub && mine ? `<span class="fc"><i>${ICON.sub}</i>${P.sub}</span>` : ''}
+      ${P.sub && (mine || hasIntel(o)) ? `<span class="fc"><i>${ICON.sub}</i>${P.sub}</span>` : ''}
       ${P.car ? `<span class="fc"><i>${ICON.car}</i>${known ? P.car : '?'}</span>` : ''}
       ${P.mis ? `<span class="fc"><i>${ICON.mis}</i>${known ? P.mis : '?'}</span>` : ''}
       ${stars(P.xp) && known ? `<span class="stars">${'★'.repeat(stars(P.xp))}</span>` : ''}
@@ -3315,6 +3551,8 @@ function renderPanel() {
   if (blockaded(i)) tags.push('<span class="tag war">Porto bloccato</span>');
   if (!P.sup) tags.push('<span class="tag truce">Senza rifornimenti</span>');
   if (recentlyBombed(i)) tags.push('<span class="tag war">Bombardata</span>');
+  if (P.rev) tags.push(`<span class="tag war">In rivolta</span>${mine ? `<button class="btn sm" id="aRepress" ${gold < 40 ? 'disabled' : ''}>Reprimi · 40</button>` : ''}`);
+  if (!mine && hasIntel(o)) tags.push('<span class="tag ally">Spie attive</span>');
   const guards = unitsIn(i, o).reduce((s, u) => s + u.n, 0);
   if (guards) tags.push(`<span class="tag ${mine ? 'ally' : 'war'}">+${fmt(guards)} in armate</span>`);
   if (G.moves.some(m => m.type === 'land' && moveTarget(m) === i && atWar(m.owner, o))) tags.push(`<span class="tag war">${mine ? 'Truppe nemiche in arrivo' : 'Tue truppe in arrivo'}</span>`);
@@ -3349,7 +3587,7 @@ function renderPanel() {
         return `<button class="act" data-build="${k}" ${can(ok, BUILD[k].cost)}><span class="gi">${ICON[k]}</span>${BUILD[k].name}<small>${P[k] ? 'già presente' : k === 'port' && !pr.sp ? 'serve la costa' : BUILD[k].cost + ' oro'}</small></button>`;
       };
       html += `<div class="sect">Arruola</div><div class="actions">
-        ${recruitBtn('rInf', ICON.inf, 'Fanteria 1k', RECRUIT_COST, 'serve caserma', P.bar)}
+        ${recruitBtn('rInf', ICON.inf, 'Fanteria 1k', recruitCost(), 'serve caserma', P.bar)}
         ${recruitBtn('rTnk', ICON.tnk, 'Carri ×10', TANK_COST, 'serve caserma', P.bar)}
         ${recruitBtn('rMis', ICON.mis, 'Lanciamissili', MIS_COST, 'serve caserma', P.bar)}
         ${recruitBtn('rFgt', ICON.apt, 'Caccia', FGT_COST, 'serve aeroporto', P.apt)}
@@ -3371,6 +3609,7 @@ function renderPanel() {
     const cool = k => (G.asked[k + o] || 0) > G.day;
     const status = war ? '<span class="tag war">In guerra</span>' : ally ? '<span class="tag ally">Alleato</span>' : tr ? `<span class="tag truce">Tregua ${Math.ceil(tr / 30)} mesi</span>` : '<span class="tag peace">In pace</span>';
     html += `<div class="btns">${status}`;
+    html += `<button class="pb" id="aSpy">Spie</button>`;
     if (war) {
       html += `<button class="pb" id="aPeace" ${cool('pp') ? 'disabled' : ''}>Proponi pace</button>
         ${G.n[me].nukes > 0 ? `<button class="pb nuke" id="aNuke">${pendingConfirm === 'nuke' + i ? 'Conferma lancio' : '☢︎ Atomica'}</button>` : ''}`;
@@ -3388,6 +3627,7 @@ function renderPanel() {
   panel.innerHTML = html;
   panel.hidden = false;
   $('closePanel').onclick = () => { selected = -1; moveMode = false; panelOpen = false; pendingConfirm = null; renderPanel(); staticDirty = true; requestRender(); };
+  if ($('aRepress')) $('aRepress').onclick = () => repress(i);
   for (const b of panel.querySelectorAll('[data-retreat]')) b.onclick = () => {
     const bt = G.battles.find(x => x.id === +b.dataset.retreat);
     if (bt) { retreat(bt); toast(`Ritirata da ${pname(i)}: i superstiti tornano indietro.`); afterAction(); }
@@ -3424,6 +3664,7 @@ function renderPanel() {
     if ($('aAlly')) $('aAlly').onclick = () => playerAlly(o);
     if ($('aAid')) $('aAid').onclick = () => playerAid(o);
     if ($('aBreak')) $('aBreak').onclick = confirmThen('break' + o, () => playerBreak(o));
+    $('aSpy').onclick = () => showSpy(o, i);
   }
 }
 
@@ -3442,7 +3683,7 @@ function spark(vals, color, h = 56) {
 const relBar = r => `<span class="relbar"><i style="left:50%;width:${Math.abs(r) / 2}%;${r < 0 ? 'transform:translateX(-100%);' : ''}background:${r >= 20 ? 'var(--peace)' : r <= -20 ? 'var(--war)' : 'var(--muted)'}"></i></span>`;
 function renderDash() {
   const me = G.player, x = G.n[me], f = forcesOf(me), inc = income(me), mine = provsOf(me);
-  const tabs = [['over', 'Panoramica'], ['wars', 'Guerre'], ['dip', 'Diplomazia'], ['mil', 'Forze'], ['eco', 'Economia'], ['rank', 'Classifica']];
+  const tabs = [['over', 'Panoramica'], ['gov', 'Governo'], ['tech', 'Ricerca'], ['trade', 'Commercio'], ['wars', 'Guerre'], ['dip', 'Diplomazia'], ['mil', 'Forze'], ['eco', 'Economia'], ['rank', 'Classifica']];
   let body = '';
   if (dashTab === 'over') {
     const pop = mine.reduce((s, i) => s + W.provs[i].pop, 0);
@@ -3503,6 +3744,42 @@ function renderDash() {
       <h3>Armate sulla mappa (${arm.length})</h3>${arm.length ? arm.map(u => `<button class="drow" data-unit="${u.id}"><b>${ICON.inf} ${fmt(u.n)} soldati</b><span class="sub">${u.prov >= 0 ? esc(pname(u.prov)) : ''}</span></button>`).join('') : '<p class="sub">Nessuna armata schierata fuori dalle guarnigioni.</p>'}
       <h3>Flotte in mare (${fl.length})</h3>${fl.length ? fl.map((f, k) => { const c = coastNear([f.x, f.y], 70); return `<div class="drow"><b>${ICON.port} ${hulls(f)} navi</b><span class="sub">${c >= 0 ? (atWar(me, G.p[c].owner) ? 'blocco a ' : 'presso ') + esc(pname(c)) : 'in mare aperto'}</span><button class="btn sm" data-unit="${f.id}">Vedi</button><button class="btn sm" data-recall="${k}">Rientra</button></div>`; }).join('') : '<p class="sub">Nessuna flotta in mare.</p>'}
       <h3>Guarnigioni principali</h3>${top.map(i => `<button class="drow" data-go="${i}"><b>${esc(pname(i))}</b><span class="sub">${fmt(G.p[i].army)} soldati${G.p[i].fgt + G.p[i].bmb ? ` · ${ICON.apt} ${G.p[i].fgt + G.p[i].bmb}` : ''}${G.p[i].ships ? ` · ${ICON.port} ${G.p[i].ships}` : ''}</span></button>`).join('')}`;
+  } else if (dashTab === 'gov') {
+    const st = Math.round(x.stab), tgt = Math.round(stabTarget(me));
+    const revs = mine.filter(i => G.p[i].rev);
+    body = `<div class="kpis">
+      <div class="kpi"><span>Stabilità</span><b class="${st < 35 ? 'neg' : st >= 60 ? 'pos' : ''}">${st}</b><small>tende a ${tgt} · ${st < 20 ? 'rivolte' : st < 35 ? 'proteste: rendita −15%' : st < 60 ? 'tranquilla' : 'popolo soddisfatto'}</small></div>
+      <div class="kpi"><span>ONU</span><b class="${sanctioned(me) ? 'neg' : 'pos'}">${sanctioned(me) ? 'Sanzioni' : 'In regola'}</b><small>${sanctioned(me) ? `ancora ${Math.ceil((x.sanc - G.day) / 30)} mesi: rendita −25%` : 'nessuna sanzione'}</small></div>
+    </div>
+    <div class="meterbar"><i style="width:${st}%"></i><em style="left:${tgt}%"></em></div>
+    <h3>Cosa pesa sulla stabilità</h3>
+    <div class="factors">${stabFactors(me).map(([l, v]) => `<div class="drow"><b>${esc(l)}</b><span class="rv ${v > 0 && l !== 'Base' ? 'pos' : v < 0 ? 'neg' : ''}">${l === 'Base' ? v : (v > 0 ? '+' : '') + v}</span></div>`).join('')}</div>
+    <h3>Tasse</h3>
+    <div class="seg">${TAX.map((t, k) => `<button class="${x.tax === k ? 'on' : ''}" data-tax="${k}">${t.name}<small>rendita ×${t.mult}${t.stab ? ` · stab. ${t.stab > 0 ? '+' : ''}${t.stab}` : ''}</small></button>`).join('')}</div>
+    <h3>Leva obbligatoria</h3>
+    <label class="toggle"><input type="checkbox" id="gDraft" ${x.draft ? 'checked' : ''}> Fanteria a ${Math.round(RECRUIT_COST * 0.7)} oro invece di ${RECRUIT_COST}, ma stabilità −10</label>
+    <h3>Bilancio della ricerca: ${x.rb}% della rendita (${inc.rd} oro al mese)</h3>
+    <input type="range" id="gRb" min="0" max="30" step="5" value="${x.rb}" class="wide">
+    ${revs.length ? `<h3>Province in rivolta</h3>${revs.map(i => `<button class="drow" data-go="${i}"><b>${esc(pname(i))}</b><span class="sub">nessuna rendita, i soldati disertano</span></button>`).join('')}` : ''}`;
+  } else if (dashTab === 'tech') {
+    const cur = x.res ? TECHS[x.res] : null, rpm = Math.round(inc.rd + 2);
+    body = `<div class="kpis">
+      <div class="kpi"><span>In ricerca</span><b style="font-size:17px">${cur ? esc(cur.name) : 'Nulla'}</b><small>${cur ? `${Math.floor(x.rp)}/${cur.cost} punti · circa ${Math.max(1, Math.ceil((cur.cost - x.rp) / Math.max(1, rpm)))} mesi` : `${Math.floor(x.rp)} punti accumulati`}</small></div>
+      <div class="kpi"><span>Punti al mese</span><b>${rpm}</b><small>alza il bilancio nel Governo</small></div>
+    </div>
+    ${cur ? `<div class="meterbar"><i style="width:${Math.min(100, x.rp / cur.cost * 100)}%"></i></div>` : ''}
+    <h3>Tecnologie</h3>
+    ${Object.entries(TECHS).map(([k, t]) => { const have = x.tech.includes(k), lock = t.need && !x.tech.includes(t.need);
+      return `<button class="drow tech ${have ? 'have' : ''} ${x.res === k ? 'me' : ''}" data-tech="${k}" ${have || lock ? 'disabled' : ''}><b>${esc(t.name)}</b><span class="sub">${have ? 'acquisita' : lock ? `serve ${esc(TECHS[t.need].name)}` : esc(t.what)}</span><span class="rv">${have ? '✓' : t.cost}</span></button>`; }).join('')}
+    <p class="sub">Gli altri paesi fanno ricerca da soli; puoi anche rubare tecnologie con le spie.</p>`;
+  } else if (dashTab === 'trade') {
+    const { prod, use } = resourceFlow(me);
+    body = `<p class="sub">Le risorse si aggiornano ogni mese. ${sanctioned(me) ? '<b class="neg">Con le sanzioni compri a +50% e vendi a −40%.</b>' : ''}</p>
+    ${['oil', 'steel', 'food'].map(k => { const net = Math.round((prod[k] - use[k]) * 10) / 10;
+      return `<div class="card rescard"><div class="ch"><b>${RES_NAMES[k]}</b><span class="sub">scorta ${Math.floor(x.stock[k])}${x.short[k] ? ' · <span class="neg">esaurito</span>' : ''}</span><span class="rv ${net < 0 ? 'neg' : 'pos'}">${net >= 0 ? '+' : ''}${net}/mese</span></div>
+        <div class="sub">prodotto ${prod[k]} · consumato ${use[k]}${k === 'steel' ? ' · in più si consuma costruendo mezzi' : ''}</div>
+        <div class="row"><button class="btn sm" data-buy="${k}" ${x.gold < buyPrice(k) ? 'disabled' : ''}>Compra 10 · ${buyPrice(k)} oro</button><button class="btn sm" data-sell="${k}" ${x.stock[k] < 10 ? 'disabled' : ''}>Vendi 10 · ${sellPrice(k)} oro</button></div></div>`; }).join('')}
+    <p class="sub">Petrolio: senza, carri, aerei e navi combattono al 70%. Acciaio: serve per carri (${STEEL_USE.tnk}), aerei (${STEEL_USE.fgt}), navi (${STEEL_USE.ship}), sottomarini (${STEEL_USE.sub}), portaerei (${STEEL_USE.car}), missili (${STEEL_USE.mis}). Cibo: senza, la stabilità crolla.</p>`;
   } else if (dashTab === 'eco') {
     const rich = mine.slice().sort((a, b) => provIncome(b) - provIncome(a)).slice(0, 8);
     const issues = mine.filter(i => radLeft(i) || blockaded(i) || !G.p[i].sup);
@@ -3511,6 +3788,7 @@ function renderDash() {
       <div class="kpi"><span>Esercito</span><b class="neg">−${inc.army}</b><small>soldo dei soldati</small></div>
       <div class="kpi"><span>Aviazione</span><b class="neg">−${inc.air}</b><small>manutenzione</small></div>
       <div class="kpi"><span>Marina</span><b class="neg">−${inc.navy}</b><small>manutenzione</small></div>
+      <div class="kpi"><span>Ricerca</span><b class="neg">−${inc.rd}</b><small>${x.rb}% della rendita</small></div>
     </div>
     <h3>Rendita mensile nel tempo</h3>${spark(G.hist.map(h => h.inc), '#3ddc97')}
     <h3>Province più ricche</h3>${rich.map(i => `<button class="drow" data-go="${i}"><b>${esc(pname(i))}</b><span class="sub">economia ${G.p[i].eco}/5</span><span class="rv">+${provIncome(i)}</span></button>`).join('')}
@@ -3536,6 +3814,12 @@ function renderDash() {
   for (const b of el.querySelectorAll('[data-goc]')) b.onclick = () => goTo(G.n[+b.dataset.goc].capital);
   for (const b of el.querySelectorAll('[data-peace]')) b.onclick = () => playerPeace(+b.dataset.peace);
   if ($('dNuke')) $('dNuke').onclick = () => { closeDash(); showArsenal(); };
+  for (const b of el.querySelectorAll('[data-tax]')) b.onclick = () => { x.tax = +b.dataset.tax; afterAction(); };
+  if ($('gDraft')) $('gDraft').onchange = e => { x.draft = e.target.checked; afterAction(); };
+  if ($('gRb')) $('gRb').onchange = e => { x.rb = +e.target.value; afterAction(); };
+  for (const b of el.querySelectorAll('[data-tech]')) b.onclick = () => { x.res = b.dataset.tech; toast(`Ricerca avviata: ${TECHS[x.res].name}.`); afterAction(); };
+  for (const b of el.querySelectorAll('[data-buy]')) b.onclick = () => trade(b.dataset.buy, true);
+  for (const b of el.querySelectorAll('[data-sell]')) b.onclick = () => trade(b.dataset.sell, false);
   for (const b of el.querySelectorAll('[data-recall]')) b.onclick = () => { const f = fleetsOf(me)[+b.dataset.recall]; if (f) recallFleet(f); afterAction(); };
   for (const b of el.querySelectorAll('[data-unit]')) b.onclick = () => { const u = unitById(+b.dataset.unit); if (!u) return; closeDash(); selUnit = u.id; selected = -1; centerOn(u.x, u.y, Math.max(cam.s, 1), 0.35); renderPanel(); requestRender(); };
 }
@@ -3627,6 +3911,10 @@ function showMenu() {
       <li>Le unità che vincono guadagnano esperienza: fino a tre stelle, +10% di forza ciascuna.</li>
       <li>Tappe: nel movimento premi “+ Tappe” e tocca più punti. Le flotte possono fare la pattuglia tra due punti. Tocca un'unità in marcia per fermarla.</li>
       <li>Selezione multipla (il pulsante con il riquadro, in basso a sinistra): trascina un dito per scegliere più armate e muoverle insieme.</li>
+      <li>Governo (nel cruscotto): tasse, leva obbligatoria e bilancio della ricerca. La stabilità sotto 35 porta proteste, sotto 20 rivolte.</li>
+      <li>L'ONU sanziona chi attacca senza motivo o usa armi nucleari; aiuta chi viene aggredito.</li>
+      <li>Risorse: petrolio, acciaio e cibo. Si producono nelle province e si comprano o vendono nel Commercio.</li>
+      <li>Spie: tocca una provincia straniera e premi Spie per infiltrarti, sabotare o rubare tecnologie.</li>
       <li>I segnali rossi pulsanti sulla mappa indicano attacchi e allarmi recenti: toccali per andarci.</li>
       <li>Il pulsante ☢ in basso a sinistra apre la modalità nucleare. Il giornale raccoglie tutte le notizie.</li>
     </ul>
