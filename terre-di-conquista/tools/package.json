@@ -1,0 +1,24 @@
+{
+  "name": "tools",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "all-the-cities": "^3.1.0",
+    "d3-delaunay": "^6.0.4",
+    "d3-geo": "^3.1.1",
+    "d3-geo-projection": "^4.0.0",
+    "i18n-iso-countries": "^7.14.0",
+    "polygon-clipping": "^0.15.7",
+    "topojson-client": "^3.1.0",
+    "topojson-server": "^3.0.1",
+    "topojson-simplify": "^3.0.3",
+    "world-atlas": "^2.0.2"
+  }
+}
