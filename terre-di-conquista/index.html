@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#070b14">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700&family=Manrope:wght@500;600;700;800&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif:ital,wght@1,600;1,700&family=Sora:wght@500;600;700&family=Manrope:wght@500;600;700;800&display=swap">
 <style>
 /* Layout: edge-to-edge map, floating frosted HUD cards (identity left, resources right), a floating sheet for the selection and a pill CTA for the turn. Single dark "command center" look. */
 :root {
@@ -21,6 +21,7 @@
   --war: #ff5d6c;
   --peace: #3ddc97;
   --display: "Sora", -apple-system, "Segoe UI", system-ui, sans-serif;
+  --serif: "Noto Serif", Georgia, "Times New Roman", serif;
   --body: "Manrope", -apple-system, "Segoe UI", system-ui, sans-serif;
   --radius: 18px;
   color-scheme: dark;
@@ -62,13 +63,15 @@ svg.i { width: 16px; height: 16px; flex: none; }
 .who b { font-family: var(--display); font-weight: 600; font-size: 15px; line-height: 1.15; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .who small { font-size: 11.5px; color: var(--muted); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .res { margin-left: auto; display: flex; gap: 6px; align-items: center; }
-.pill { display: flex; align-items: center; gap: 6px; padding: 8px 11px; border-radius: 999px; font-weight: 800; font-size: 14px; white-space: nowrap; }
+.pill { display: flex; align-items: center; gap: 5px; padding: 8px 9px; border-radius: 999px; font-weight: 800; font-size: 14px; white-space: nowrap; }
 .pill small { font-weight: 700; font-size: 11px; color: var(--peace); }
 .pill small.neg { color: var(--war); }
 .pill.gold svg { color: var(--gold); }
 .pill.army svg { color: var(--accent); }
 .icon-btn { display: grid; place-items: center; width: 38px; height: 38px; border-radius: 50%; color: var(--ink); cursor: pointer; flex: none; padding: 0; }
 .icon-btn svg { width: 18px; height: 18px; }
+#layerBtn { position: fixed; z-index: 6; top: calc(env(safe-area-inset-top, 0px) + 10px); right: max(12px, env(safe-area-inset-right, 0px)); }
+#top .res { margin-right: 44px; gap: 5px; }
 
 button { font-family: var(--body); }
 button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
@@ -181,6 +184,7 @@ h1 { margin: 0; font-family: var(--display); font-weight: 700; font-size: 30px; 
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
   <symbol id="i-coin" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="currentColor" opacity=".25"/><circle cx="12" cy="12" r="6.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 8.5v7" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
   <symbol id="i-army" viewBox="0 0 24 24"><path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6z" fill="currentColor" opacity=".25"/><path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></symbol>
+  <symbol id="i-layers" viewBox="0 0 24 24"><path d="M12 4l9 5-9 5-9-5z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M3 14l9 5 9-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></symbol>
   <symbol id="i-menu" viewBox="0 0 24 24"><path d="M5 8h14M5 16h14" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></symbol>
   <symbol id="i-next" viewBox="0 0 24 24"><path d="M5 12h13M13 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></symbol>
   <symbol id="i-close" viewBox="0 0 24 24"><path d="M7 7l10 10M17 7L7 17" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></symbol>
@@ -202,6 +206,8 @@ h1 { margin: 0; font-family: var(--display); font-weight: 700; font-size: 30px; 
     <button class="icon-btn glass" id="menuBtn" aria-label="Menu"><svg><use href="#i-menu"/></svg></button>
   </div>
 </header>
+
+<button class="icon-btn glass" id="layerBtn" aria-label="Cambia mappa"><svg><use href="#i-layers"/></svg></button>
 
 <div id="toasts" aria-live="polite"></div>
 
@@ -599,13 +605,44 @@ const ctx = cv.getContext('2d');
 let dpr = 1, vw = 0, vh = 0;
 const cam = { x: 0, y: 0, s: 1 };
 let seaLayer = null, bordersDirty = true, nationPaths = [], labelCache = [];
-let FONT_DISPLAY = 'Georgia, serif', FONT_BODY = 'system-ui, sans-serif';
+let FONT_DISPLAY = 'Georgia, serif', FONT_BODY = 'system-ui, sans-serif', FONT_SERIF = 'Georgia, serif';
 function readFonts() {
   const cs = getComputedStyle(document.body);
   FONT_DISPLAY = cs.getPropertyValue('--display').trim() || FONT_DISPLAY;
   FONT_BODY = cs.getPropertyValue('--body').trim() || FONT_BODY;
+  FONT_SERIF = cs.getPropertyValue('--serif').trim() || FONT_SERIF;
 }
 
+let mapMode = 'sat';
+try { mapMode = localStorage.getItem('tdc-mapmode') || 'sat'; } catch (e) {}
+const earthImg = new Image();
+let earthReady = false;
+earthImg.onload = () => { earthReady = true; bordersDirty = true; requestRender(); };
+earthImg.src = 'earth.jpg';
+const REL = { own: '#4da3ff', war: '#ff4d5e', truce: '#f5c451', none: 'rgba(255, 255, 255, 0.55)' };
+function relation(n) {
+  const me = phase === 'pick' ? pickNation : G.player;
+  if (me < 0) return 'none';
+  if (n === me) return 'own';
+  if (phase === 'play' && atWar(me, n)) return 'war';
+  if (phase === 'play' && truceLeft(me, n)) return 'truce';
+  return 'none';
+}
+const relColor = n => REL[relation(n)];
+let outlines = new Map();
+function outlineOf(n) {
+  if (outlines.has(n)) return outlines.get(n);
+  const path = new Path2D();
+  for (const T of W.tiles) for (const ch of T.chunks) {
+    const o = ch.o, a = G.p[o[0]].owner, b = o.length > 1 ? G.p[o[1]].owner : -1;
+    if ((a === n) === (b === n)) continue;
+    const pts = ch.pts;
+    path.moveTo(pts[0], pts[1]);
+    for (let k = 2; k < pts.length; k += 2) path.lineTo(pts[k], pts[k + 1]);
+  }
+  outlines.set(n, path);
+  return path;
+}
 function prepareSea() {
   const S = 0.5;
   seaLayer = document.createElement('canvas');
@@ -633,6 +670,7 @@ function prepareSea() {
 function rebuildCaches() {
   // one fill path per nation (no seams inside a country) and border paths per tile
   nationPaths = W.nations.map(() => null);
+  outlines = new Map();
   for (let n = 0; n < W.nations.length; n++) {
     const list = provsOf(n);
     if (!list.length) continue;
@@ -659,7 +697,7 @@ function rebuildCaches() {
 function buildLabels() {
   labelCache = [];
   ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0);
-  ctx.font = '700 100px ' + FONT_DISPLAY;
+  ctx.font = mapMode === 'sat' ? 'italic 700 100px ' + FONT_SERIF : '700 100px ' + FONT_DISPLAY;
   const seen = new Uint8Array(W.provs.length);
   for (let n = 0; n < W.nations.length; n++) {
     const list = provsOf(n);
@@ -689,7 +727,7 @@ function buildLabels() {
     for (const i of best) { const pr = (W.provs[i].c[0] - mx) * ux + (W.provs[i].c[1] - my) * uy; lo = Math.min(lo, pr); hi = Math.max(hi, pr); }
     const avg = Math.sqrt(bestArea / best.length);
     const ext = hi - lo + avg * 0.7;
-    const text = nat(n).place.toUpperCase().split('').join(' ');
+    const text = mapMode === 'sat' ? nat(n).place.split('').join(' ') : nat(n).place.toUpperCase().split('').join(' ');
     const w100 = ctx.measureText(text).width;
     let size = Math.min(ext * 0.85 / w100 * 100, avg * 0.6 + Math.sqrt(best.length) * 8);
     labelCache.push({ n, text, x: mx + ux * (lo + hi) / 2, y: my + uy * (lo + hi) / 2, ang, size });
@@ -716,17 +754,32 @@ function render() {
   ctx.fillStyle = '#070b14'; ctx.fillRect(0, 0, vw, vh);
   ctx.save();
   ctx.translate(cam.x, cam.y); ctx.scale(s, s);
-  ctx.drawImage(seaLayer, 0, 0, MW, MH);
-
-  for (let n = 0; n < nationPaths.length; n++) {
-    const NP = nationPaths[n];
-    if (!NP || !visible(NP.bb)) continue;
-    ctx.fillStyle = W.nations[n].color;
-    ctx.fill(NP.path, 'evenodd');
-  }
+  const sat = mapMode === 'sat' && earthReady;
   const focus = phase === 'pick' ? pickNation : -1;
-  if (focus >= 0 && nationPaths[focus]) {
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.28)'; ctx.fill(nationPaths[focus].path, 'evenodd');
+  if (sat) {
+    ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(earthImg, 0, 0, MW, MH);
+    // light tint on your land and on enemies at war
+    for (let n = 0; n < nationPaths.length; n++) {
+      const NP = nationPaths[n];
+      if (!NP || !visible(NP.bb)) continue;
+      const r = relation(n);
+      if (r === 'own') ctx.fillStyle = 'rgba(77, 163, 255, 0.16)';
+      else if (r === 'war') ctx.fillStyle = 'rgba(255, 77, 94, 0.14)';
+      else continue;
+      ctx.fill(NP.path, 'evenodd');
+    }
+  } else {
+    ctx.drawImage(seaLayer, 0, 0, MW, MH);
+    for (let n = 0; n < nationPaths.length; n++) {
+      const NP = nationPaths[n];
+      if (!NP || !visible(NP.bb)) continue;
+      ctx.fillStyle = W.nations[n].color;
+      ctx.fill(NP.path, 'evenodd');
+    }
+    if (focus >= 0 && nationPaths[focus]) {
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.28)'; ctx.fill(nationPaths[focus].path, 'evenodd');
+    }
   }
   if (phase === 'play') {
     ctx.fillStyle = 'rgba(255, 93, 108, 0.45)';
@@ -739,17 +792,33 @@ function render() {
   }
 
   ctx.lineJoin = 'round'; ctx.lineCap = 'round';
-  for (const T of W.tiles) {
-    if (!T.chunks.length || !visible(T.bb)) continue;
-    if (s > 0.45) { ctx.strokeStyle = 'rgba(255, 255, 255, 0.14)'; ctx.lineWidth = 0.6 * px; ctx.stroke(T.thin); }
-    ctx.strokeStyle = 'rgba(7, 11, 20, 0.55)'; ctx.lineWidth = Math.min(1.1, 0.4 + s) * px; ctx.stroke(T.coast);
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.75)'; ctx.lineWidth = Math.min(1.3, 0.5 + s) * px; ctx.stroke(T.thick);
+  if (sat) {
+    for (const T of W.tiles) {
+      if (!T.chunks.length || !visible(T.bb)) continue;
+      if (s > 0.6) { ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)'; ctx.lineWidth = 0.6 * px; ctx.stroke(T.thin); }
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.38)'; ctx.lineWidth = Math.min(1.1, 0.4 + s) * px; ctx.stroke(T.thick);
+    }
+    // glowing outlines: you in blue, enemies in red, truces in amber
+    const me = phase === 'pick' ? pickNation : G.player;
+    if (me >= 0) {
+      if (phase === 'play') for (const w of G.n[me].wars) glowStroke(outlineOf(w), REL.war, 1.4 * px, 8);
+      if (phase === 'play') for (const k in G.truce) { const [a, b] = k.split('-').map(Number); const o = a === me ? b : b === me ? a : -1; if (o >= 0 && G.n[o].alive) glowStroke(outlineOf(o), REL.truce, 1.2 * px, 6); }
+      glowStroke(outlineOf(me), REL.own, 1.8 * px, 12);
+      glowStroke(outlineOf(me), 'rgba(200, 228, 255, 0.9)', 0.7 * px, 0);
+    }
+  } else {
+    for (const T of W.tiles) {
+      if (!T.chunks.length || !visible(T.bb)) continue;
+      if (s > 0.45) { ctx.strokeStyle = 'rgba(255, 255, 255, 0.14)'; ctx.lineWidth = 0.6 * px; ctx.stroke(T.thin); }
+      ctx.strokeStyle = 'rgba(7, 11, 20, 0.55)'; ctx.lineWidth = Math.min(1.1, 0.4 + s) * px; ctx.stroke(T.coast);
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.75)'; ctx.lineWidth = Math.min(1.3, 0.5 + s) * px; ctx.stroke(T.thick);
+    }
+    if (focus >= 0 && nationPaths[focus]) glowStroke(outlineOf(focus), '#ffffff', 1.6 * px, 10);
   }
-  if (focus >= 0 && nationPaths[focus]) glowStroke(nationPaths[focus].path, '#ffffff', 1.6 * px, 10);
 
   // sea routes (some wrap around the date line)
   if (s > 0.45) {
-    ctx.setLineDash([1 * px, 5 * px]); ctx.strokeStyle = 'rgba(150, 185, 255, 0.55)'; ctx.lineWidth = 1.6 * px;
+    ctx.setLineDash([1 * px, 5 * px]); ctx.strokeStyle = sat ? 'rgba(127, 184, 255, 0.75)' : 'rgba(150, 185, 255, 0.55)'; ctx.lineWidth = 1.6 * px;
     ctx.beginPath();
     for (const [a, b] of W.routes) {
       let [x0, y0] = W.provs[a].c, [x1, y1] = W.provs[b].c;
@@ -773,13 +842,15 @@ function render() {
 
   // country names
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  ctx.shadowColor = 'rgba(0, 0, 0, 0.45)'; ctx.shadowBlur = 6;
-  ctx.fillStyle = 'rgba(255, 255, 255, 0.92)';
+  ctx.shadowColor = sat ? 'rgba(0, 0, 0, 0.7)' : 'rgba(0, 0, 0, 0.45)'; ctx.shadowBlur = 6;
+  ctx.fillStyle = sat ? 'rgba(236, 236, 230, 0.8)' : 'rgba(255, 255, 255, 0.92)';
+  const labelFont = sat ? 'italic 700 ' : '700 ', labelFamily = sat ? FONT_SERIF : FONT_DISPLAY;
+  const lk = sat ? 0.6 : 1;
   for (const L of labelCache) {
-    const sz = L.size * s;
+    const sz = L.size * lk * s;
     if (sz < 8 || sz > 80) continue;
     ctx.save(); ctx.translate(L.x, L.y); ctx.rotate(L.ang);
-    ctx.font = '700 ' + L.size.toFixed(2) + 'px ' + FONT_DISPLAY;
+    ctx.font = labelFont + (L.size * lk).toFixed(2) + 'px ' + labelFamily;
     ctx.fillText(L.text, 0, 0);
     ctx.restore();
   }
@@ -809,7 +880,7 @@ function render() {
       const w = ctx.measureText(fmt(P.army)).width + 22 + (c.isCap ? 12 : 0);
       if (free(c.x - w / 2, c.y - 10, w, 19)) { placed.push([c.x - w / 2, c.y - 10, w, 19]); armyPill(c.x, c.y, P, c.mine, c.isCap); continue; }
     }
-    if (c.isCap && (s > 0.5 || c.mine) && free(c.x - 5, c.y - 5, 10, 10)) { placed.push([c.x - 5, c.y - 5, 10, 10]); capitalDot(c.x, c.y, W.nations[P.owner].color); }
+    if (c.isCap && (s > 0.5 || c.mine) && free(c.x - 5, c.y - 5, 10, 10)) { placed.push([c.x - 5, c.y - 5, 10, 10]); capitalDot(c.x, c.y, markColor(P.owner)); }
   }
   if (s > 2.2) {
     ctx.font = '700 10.5px ' + FONT_BODY;
@@ -824,6 +895,7 @@ function render() {
     ctx.shadowBlur = 0; ctx.shadowColor = 'transparent';
   }
 }
+const markColor = n => mapMode === 'sat' && earthReady ? (relation(n) === 'none' ? '#c9d2de' : relColor(n)) : W.nations[n].color;
 function capitalDot(x, y, color) {
   ctx.beginPath(); ctx.arc(x, y, 5, 0, 7); ctx.fillStyle = '#ffffff'; ctx.fill();
   ctx.beginPath(); ctx.arc(x, y, 2.6, 0, 7); ctx.fillStyle = color; ctx.fill();
@@ -838,7 +910,7 @@ function armyPill(x, y, P, mine, isCap) {
   roundRect(x0, y0, w, h, h / 2); ctx.fill();
   ctx.shadowBlur = 0; ctx.shadowOffsetY = 0; ctx.shadowColor = 'transparent';
   if (mine) { ctx.strokeStyle = P.fresh > 0 ? '#5b8cff' : 'rgba(255, 255, 255, 0.25)'; ctx.lineWidth = 1.5; ctx.stroke(); }
-  ctx.beginPath(); ctx.arc(x0 + 9.5, y, 4, 0, 7); ctx.fillStyle = W.nations[P.owner].color; ctx.fill();
+  ctx.beginPath(); ctx.arc(x0 + 9.5, y, 4, 0, 7); ctx.fillStyle = markColor(P.owner); ctx.fill();
   if (isCap) { ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1.5; ctx.stroke(); }
   ctx.fillStyle = '#ffffff'; ctx.textAlign = 'left';
   ctx.fillText(label, x0 + 17 + (isCap ? 0 : 0), y + 0.5);
@@ -1114,6 +1186,12 @@ $('continueBtn').onclick = () => {
 };
 $('endTurn').onclick = endTurn;
 $('menuBtn').onclick = showMenu;
+$('layerBtn').onclick = () => {
+  mapMode = mapMode === 'sat' ? 'pol' : 'sat';
+  try { localStorage.setItem('tdc-mapmode', mapMode); } catch (e) {}
+  bordersDirty = true; requestRender();
+  toast(mapMode === 'sat' ? 'Mappa satellitare' : 'Mappa politica a colori');
+};
 
 function boot(data) {
   W = buildWorld();
