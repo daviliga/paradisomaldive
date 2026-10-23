@@ -76,7 +76,7 @@ svg.i { width: 16px; height: 16px; flex: none; }
 .arsenal { display: flex; align-items: center; gap: 14px; padding: 12px 14px; border-radius: 16px; background: rgba(255,255,255,0.05); }
 .arsenal svg { width: 40px; height: 40px; color: #d4f25a; flex: none; }
 .arsenal b { font-family: var(--display); font-size: 26px; display: block; }
-.icon-btn { display: grid; place-items: center; width: 38px; height: 38px; border-radius: 50%; color: var(--ink); cursor: pointer; flex: none; padding: 0; }
+.icon-btn { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 50%; color: var(--ink); cursor: pointer; flex: none; padding: 0; }
 .icon-btn svg { width: 18px; height: 18px; }
 #layerBtn { position: fixed; z-index: 6; width: 48px; height: 48px; bottom: calc(env(safe-area-inset-bottom, 0px) + 16px); left: max(14px, env(safe-area-inset-left, 0px)); }
 #top .res { gap: 5px; }
@@ -218,6 +218,58 @@ h1 { margin: 0; font-family: var(--display); font-weight: 700; font-size: 30px; 
 .fi.bad { border-left-color: var(--war); }
 .fi.good { border-left-color: var(--peace); }
 #layerBtn { bottom: calc(env(safe-area-inset-bottom, 0px) + 16px); }
+.grid6 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 5px; }
+.grid6 .cell { padding: 5px 9px; gap: 1px; }
+.grid6 .cell b { font-size: 15px; }
+#panel .actions .act:not(.wide) { padding: 6px 4px; font-size: 12.5px; gap: 1px; }
+#panel .actions .act:not(.wide) svg { width: 15px; height: 15px; }
+#panel .actions .gi { font-size: 14px; line-height: 15px; }
+#panel { max-height: 64%; }
+.gi { font-size: 17px; line-height: 18px; color: var(--accent); }
+.sendrow { display: flex; gap: 6px; }
+.sendrow .act { flex: 1; flex-direction: row; justify-content: center; padding: 11px 6px; }
+.act.send.on { background: rgba(255,255,255,.14); color: var(--ink); }
+.tag.rel { color: hsl(calc(60 + var(--r) * 0.9) 70% 72%); background: rgba(255,255,255,.06); }
+.toggle { display: flex; gap: 10px; align-items: flex-start; color: var(--muted); font-size: 13.5px; font-weight: 600; line-height: 1.4; }
+.toggle input { margin-top: 2px; accent-color: var(--accent); width: 18px; height: 18px; flex: none; }
+#dash {
+  position: fixed; z-index: 8; inset: calc(env(safe-area-inset-top, 0px) + 8px) max(8px, env(safe-area-inset-right, 0px)) calc(env(safe-area-inset-bottom, 0px) + 8px) max(8px, env(safe-area-inset-left, 0px));
+  margin: 0 auto; max-width: 640px; border-radius: 24px; background: var(--glass-strong);
+  display: grid; grid-template-rows: auto auto 1fr; overflow: hidden;
+}
+.dhead { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; padding: 18px 18px 10px; }
+.dhead h1 { font-size: 24px; }
+.dtabs { display: flex; gap: 4px; padding: 0 12px 10px; overflow-x: auto; scrollbar-width: none; border-bottom: 1px solid var(--line); }
+.dtabs button { flex: none; border: 0; border-radius: 999px; padding: 8px 13px; background: transparent; color: var(--muted); font: 800 13px var(--body); cursor: pointer; }
+.dtabs button.on { background: rgba(91,140,255,.18); color: #cddcff; }
+.dbody { overflow-y: auto; padding: 14px 16px 22px; display: grid; gap: 10px; align-content: start; }
+.dbody h3 { margin: 8px 0 0; font: 800 11px var(--body); letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+.kpis { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; }
+.kpi { display: grid; gap: 2px; padding: 11px 12px; border-radius: 14px; background: rgba(255,255,255,.05); min-width: 0; }
+.kpi span { font-size: 10.5px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.kpi b { font-family: var(--display); font-size: 22px; font-weight: 600; }
+.kpi small { font-size: 12px; color: var(--muted); font-weight: 600; }
+.kpi.nukek { border: 1px solid rgba(212,242,90,.35); color: var(--ink); text-align: left; cursor: pointer; font-family: var(--body); }
+.kpi.nukek b { color: #d4f25a; }
+.pos { color: var(--peace) !important; } .neg { color: var(--war) !important; }
+.spark { width: 100%; height: 64px; display: block; border-radius: 12px; background: rgba(255,255,255,.03); }
+.card { display: grid; gap: 10px; padding: 14px; border-radius: 16px; background: rgba(255,255,255,.05); }
+.ch { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.ch .chip, .drow .chip { width: 12px; height: 12px; border-radius: 4px; flex: none; }
+.ch b { font-family: var(--display); font-size: 17px; }
+.vsgrid { display: grid; grid-template-columns: 1fr auto auto; gap: 6px 16px; font-size: 13.5px; align-items: baseline; }
+.vsgrid > span:nth-child(-n+3) { font-size: 10.5px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.vsgrid > span { color: var(--muted); font-weight: 600; }
+.vsgrid b { text-align: right; font-variant-numeric: tabular-nums; }
+.drow { display: flex; align-items: center; gap: 10px; width: 100%; padding: 10px 12px; border-radius: 12px; border: 0; background: rgba(255,255,255,.04); color: var(--ink); font: 600 13.5px var(--body); text-align: left; cursor: pointer; min-width: 0; }
+.drow b { font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.drow .sub { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.drow .rv { margin-left: auto; font-weight: 800; font-variant-numeric: tabular-nums; }
+.drow.me { outline: 1.5px solid var(--accent); }
+.drow .rk { width: 22px; color: var(--muted); font-weight: 800; }
+.relbar { position: relative; flex: 1; min-width: 50px; height: 6px; border-radius: 3px; background: rgba(255,255,255,.08); }
+.relbar i { position: absolute; top: 0; bottom: 0; border-radius: 3px; }
+.btn.sm { padding: 7px 12px; font-size: 13px; margin-left: auto; }
 </style>
 
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
@@ -244,8 +296,7 @@ h1 { margin: 0; font-family: var(--display); font-weight: 700; font-size: 30px; 
   </div>
   <div class="res">
     <div class="pill gold glass"><svg class="i"><use href="#i-coin"/></svg><span id="topGold">0</span></div>
-    <div class="pill army glass"><svg class="i"><use href="#i-army"/></svg><span id="topArmy">0</span></div>
-    <button class="pill nuke glass" id="nukePill" aria-label="Arsenale nucleare"><svg class="i"><use href="#i-nuke"/></svg><span id="topNukes">0</span></button>
+    <button class="icon-btn glass" id="dashBtn" aria-label="Stato"><svg><use href="#i-chart"/></svg></button>
     <button class="icon-btn glass" id="newsBtn" aria-label="Notizie"><svg><use href="#i-news"/></svg><i id="newsCount"></i></button>
     <button class="icon-btn glass" id="menuBtn" aria-label="Menu"><svg><use href="#i-menu"/></svg></button>
   </div>
@@ -275,6 +326,8 @@ h1 { margin: 0; font-family: var(--display); font-weight: 700; font-size: 30px; 
   </div>
 </section>
 
+<section id="dash" class="glass" hidden></section>
+
 <div id="modal" hidden><div class="box" id="modalBox"></div></div>
 
 <script src="world.js"></script>
@@ -282,7 +335,7 @@ h1 { margin: 0; font-family: var(--display); font-weight: 700; font-size: 30px; 
 'use strict';
 const WD = window.WORLD;
 const MW = WD.W, MH = WD.H;
-const SAVE_KEY = 'terre-di-conquista-live-v1';
+const SAVE_KEY = 'terre-di-conquista-live-v3';
 const MONTHS = ['Gen','Feb','Mar','Apr','Mag','Giu','Lug','Ago','Set','Ott','Nov','Dic'];
 const START_YEAR = 2026;
 const RECRUIT = 1000, RECRUIT_COST = 20;
@@ -290,9 +343,15 @@ const NUKE_PROGRAM_COST = 400, NUKE_PROGRAM_DAYS = 240, NUKE_COST = 120, RAD_DAY
 // today's nuclear powers start with a (scaled-down) arsenal
 const START_NUKES = { US: 12, RU: 12, CN: 6, FR: 4, GB: 4, IN: 3, PK: 3, IL: 2, KP: 2 };
 const MAX_ZOOM = 8;
-const MARCH_SPEED = 45;       // map units an army covers per day
-const SPEEDS = [0, 1, 2, 4];  // game days per real second
-const AI_EVERY = 5;           // days between decisions of each AI nation
+const LAND_SPEED = 12, SEA_SPEED = 40, AIR_SPEED = 160;  // map units per day
+const AIR_RANGE = 380;                                    // how far planes fly from their base
+const SPEEDS = [0, 0.5, 1, 2];                            // game days per real second
+const FGT_COST = 45, BMB_COST = 55, SHIP_COST = 70, AID_COST = 60;
+// air force and navy of the main military powers at the start: [planes, ships]
+const START_MIL = { US: [40, 30], RU: [30, 14], CN: [32, 22], IN: [18, 10], GB: [12, 12], FR: [12, 10], JP: [12, 14], KR: [12, 8],
+  DE: [10, 5], IT: [9, 9], TR: [12, 8], IL: [10, 3], PK: [9, 4], EG: [8, 5], SA: [9, 4], IR: [6, 5], BR: [6, 6], AU: [6, 6],
+  ES: [6, 6], CA: [5, 6], UA: [4, 2], GR: [5, 6], ID: [4, 8], TW: [8, 6], KP: [6, 4], VN: [4, 4], PL: [6, 2], DZ: [5, 4] };
+const AI_EVERY = 7;           // days between decisions of each AI nation
 
 // ---------- world (static) ----------
 function decodeRing(d) {
@@ -374,7 +433,21 @@ function buildWorld() {
     const s = 44 + (n.id * 37) % 18, l = 55 + (n.id * 53) % 10;
     n.color = `hsl(${best.toFixed(0)} ${s}% ${l}%)`;
   }
-  return { provs, nations, tiles, hit, HG, hcols, hrows, routes: WD.routes };
+  // coastal provinces and the sea lanes between them (nearby coasts and the sea routes)
+  for (const a of WD.arcs) if (a.o.length === 1) provs[a.o[0]].coastal = true;
+  const coastal = provs.filter(p => p.coastal), navNb = provs.map(() => []);
+  const NG = 170, ncols = Math.ceil(MW / NG), ngrid = new Map();
+  for (const p of coastal) { const k = Math.floor(p.c[0] / NG) + ',' + Math.floor(p.c[1] / NG); if (!ngrid.has(k)) ngrid.set(k, []); ngrid.get(k).push(p.id); }
+  for (const p of coastal) {
+    const gx = Math.floor(p.c[0] / NG), gy = Math.floor(p.c[1] / NG);
+    for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) for (const j of ngrid.get(((gx + dx + ncols) % ncols) + ',' + (gy + dy)) || []) {
+      if (j === p.id) continue;
+      let ddx = Math.abs(provs[j].c[0] - p.c[0]); ddx = Math.min(ddx, MW - ddx);
+      if (Math.hypot(ddx, provs[j].c[1] - p.c[1]) < NG) navNb[p.id].push(j);
+    }
+  }
+  for (const [a, b] of WD.routes) { if (!navNb[a].includes(b)) navNb[a].push(b); if (!navNb[b].includes(a)) navNb[b].push(a); }
+  return { provs, nations, tiles, hit, HG, hcols, hrows, routes: WD.routes, routeSet, navNb };
 }
 
 // ---------- game state ----------
@@ -384,31 +457,42 @@ let pickNation = -1, selected = -1, pendingConfirm = null, moveMode = false;
 let speedIdx = 1, modalOpen = false;
 const modalQueue = [];
 
+function startForces(n) {
+  const a2 = WD.countries[n.id].a, big = START_MIL[a2];
+  const air = big ? big[0] : Math.round(n.size / 5), navy = big ? big[1] : Math.round(n.size / 7);
+  return { air, navy };
+}
 function initialState() {
-  return {
-    v: 2, time: 0, day: 0, player: -1, truce: {}, asked: {}, retal: [], moves: [], nextMove: 1,
-    p: W.provs.map(p => {
-      const eco = ecoFromPop(p.pop);
-      const army = p.cap ? 2500 + eco * 400 : 300 + eco * 200;
-      return { owner: p.country, army, eco, fort: p.cap ? 1 : 0, rad: -1 };
-    }),
-    n: W.nations.map(n => {
-      const nk = START_NUKES[WD.countries[n.id].a] || 0;
-      return { gold: 60, alive: n.size > 0, capital: n.capital, wars: [], since: {}, allies: [], nukes: nk, prog: nk ? 0 : -1 };
-    }),
-  };
+  const p = W.provs.map(p => {
+    const eco = ecoFromPop(p.pop);
+    const army = p.cap ? 2500 + eco * 400 : 300 + eco * 200;
+    return { owner: p.country, army, fgt: 0, bmb: 0, ships: 0, eco, fort: p.cap ? 1 : 0, rad: -1, hit: -1, sup: 1 };
+  });
+  const n = W.nations.map(x => {
+    const nk = START_NUKES[WD.countries[x.id].a] || 0;
+    if (x.size) {
+      // air force at the capital, fleet in the main port
+      const f = startForces(x), cap = x.capital;
+      p[cap].fgt = Math.ceil(f.air * 0.6); p[cap].bmb = Math.floor(f.air * 0.4);
+      const port = W.provs[cap].coastal ? cap : W.provs.filter(q => q.country === x.id && q.coastal).sort((a, b) => provDist(a.id, cap) - provDist(b.id, cap))[0]?.id;
+      if (port !== undefined) p[port].ships = f.navy;
+    }
+    return { gold: 60, alive: x.size > 0, capital: x.capital, wars: [], since: {}, allies: [], nukes: nk, prog: nk ? 0 : -1 };
+  });
+  const rel = W.nations.map(() => Math.round(Math.random() * 30 - 10));
+  return { v: 3, time: 0, day: 0, player: -1, truce: {}, asked: {}, retal: [], moves: [], fleets: [], nextMove: 1, ws: {}, hist: [], rel, autoPause: true, p, n };
 }
 function serialize() {
-  return { ...G, p: G.p.map(x => [x.owner, x.army, x.eco, x.fort, x.rad]) };
+  return { ...G, p: G.p.map(x => [x.owner, x.army, x.fgt, x.bmb, x.ships, x.eco, x.fort, x.rad, x.hit, x.sup]) };
 }
 function restore(s) {
-  if (!s || s.v !== 2) return false;
-  G = { ...s, retal: s.retal || [], asked: s.asked || {}, p: s.p.map(a => ({ owner: a[0], army: a[1], eco: a[2], fort: a[3], rad: a[4] })) };
+  if (!s || s.v !== 3) return false;
+  G = { ...s, retal: s.retal || [], asked: s.asked || {}, p: s.p.map(a => ({ owner: a[0], army: a[1], fgt: a[2], bmb: a[3], ships: a[4], eco: a[5], fort: a[6], rad: a[7], hit: a[8], sup: a[9] })) };
   ownVer++; bordersDirty = true; staticDirty = true;
   return true;
 }
 function save() { try { if (G && phase === 'play') localStorage.setItem(SAVE_KEY, JSON.stringify(serialize())); } catch (e) {} }
-function loadSaved() { try { const s = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null'); return s && s.v === 2 ? s : null; } catch (e) { return null; } }
+function loadSaved() { try { const s = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null'); return s && s.v === 3 ? s : null; } catch (e) { return null; } }
 function clearSaved() { try { localStorage.removeItem(SAVE_KEY); } catch (e) {} }
 
 // ownership lists, cached until a province changes hands
@@ -424,25 +508,36 @@ function provsOf(n) {
 const nat = i => W.nations[i];
 const fullName = i => nat(i).place;
 const pname = i => W.provs[i].name;
-function armyOf(n) {
-  let s = 0;
-  for (const i of provsOf(n)) s += G.p[i].army;
-  for (const m of G.moves) if (m.owner === n) s += m.amount;
-  return s;
+function forcesOf(n) {
+  const f = { army: 0, fgt: 0, bmb: 0, ships: 0 };
+  for (const i of provsOf(n)) { const P = G.p[i]; f.army += P.army; f.fgt += P.fgt; f.bmb += P.bmb; f.ships += P.ships; }
+  for (const m of G.moves) if (m.owner === n) { f.army += m.amount || 0; f.fgt += m.fgt || 0; f.bmb += m.bmb || 0; f.ships += m.ships || 0; }
+  for (const fl of G.fleets) if (fl.owner === n) f.ships += fl.ships;
+  return f;
 }
+// one number for military strength: soldiers, with planes and ships counted as their weight in soldiers
+const power = f => f.army + f.fgt * 600 + f.bmb * 700 + f.ships * 800;
+const armyOf = n => power(forcesOf(n));
 const atWar = (a, b) => G.n[a].wars.includes(b);
 const allied = (a, b) => G.n[a].allies.includes(b);
 const tkey = (a, b) => a < b ? a + '-' + b : b + '-' + a;
 const truceLeft = (a, b) => Math.max(0, (G.truce[tkey(a, b)] || 0) - G.day);
 const radLeft = i => Math.max(0, G.p[i].rad - G.day);
-const provIncome = i => radLeft(i) ? 0 : 2 + G.p[i].eco * 2 + (G.n[G.p[i].owner].capital === i ? 6 : 0);
+const blockaded = i => G.fleets.some(f => f.prov === i && atWar(f.owner, G.p[i].owner));
+function provIncome(i) {
+  if (radLeft(i)) return 0;
+  const base = 2 + G.p[i].eco * 2 + (G.n[G.p[i].owner].capital === i ? 6 : 0);
+  return blockaded(i) ? Math.floor(base / 2) : base;
+}
 function income(n) {
   let inc = 0;
   for (const i of provsOf(n)) inc += provIncome(i);
-  const upkeep = Math.round(armyOf(n) / 1000 * 0.8);
-  return { inc, upkeep, net: inc - upkeep };
+  const f = forcesOf(n);
+  const army = Math.round(f.army / 1000 * 0.8), air = Math.round(f.fgt * 1 + f.bmb * 1.2), navy = Math.round(f.ships * 1.5);
+  return { inc, upkeep: army + air + navy, army, air, navy, net: inc - army - air - navy };
 }
-const defense = i => G.p[i].army * (1.1 + 0.15 * G.p[i].fort);
+const recentlyBombed = i => G.p[i].hit >= 0 && G.day - G.p[i].hit < 6;
+const defense = i => G.p[i].army * (1.25 + 0.15 * G.p[i].fort) * (recentlyBombed(i) ? 0.75 : 1);
 const ecoCost = i => 25 * G.p[i].eco;
 const fortCost = i => 40 * (G.p[i].fort + 1);
 function neighborNations(n) {
@@ -450,8 +545,22 @@ function neighborNations(n) {
   for (const i of provsOf(n)) for (const j of W.provs[i].nb) if (G.p[j].owner !== n) s.add(G.p[j].owner);
   return [...s];
 }
-function dateStr(day) { return (day % 30 + 1) + ' ' + MONTHS[Math.floor(day / 30) % 12] + ' ' + (START_YEAR + Math.floor(day / 360)); }
+function dateStr(day) { return (Math.floor(day) % 30 + 1) + ' ' + MONTHS[Math.floor(day / 30) % 12] + ' ' + (START_YEAR + Math.floor(day / 360)); }
 const nearPlayer = n => G.player >= 0 && (n === G.player || allied(G.player, n) || neighborNations(G.player).includes(n));
+
+// ---------- relations with the player, -100..100 ----------
+function relAdd(n, d) { if (n >= 0 && n !== G.player) G.rel[n] = Math.max(-100, Math.min(100, (G.rel[n] || 0) + d)); }
+function relAll(d, except = []) { for (let n = 0; n < G.n.length; n++) if (G.n[n].alive && !except.includes(n)) relAdd(n, d); }
+const relOf = n => Math.round(G.rel[n] || 0);
+function relWord(r) { return r >= 60 ? 'Amichevole' : r >= 20 ? 'Cordiale' : r > -20 ? 'Neutrale' : r > -60 ? 'Freddo' : 'Ostile'; }
+
+// ---------- war statistics for the dashboard ----------
+function wstat(a, b) {
+  const k = tkey(a, b);
+  if (!G.ws[k]) G.ws[k] = { start: G.day, cap: {}, kia: {} };
+  return G.ws[k];
+}
+function addKia(a, b, who, n) { const s = wstat(a, b); s.kia[who] = (s.kia[who] || 0) + Math.max(0, Math.round(n)); }
 
 // ---------- diplomacy: war, peace, alliances ----------
 function declareWar(a, b) {
@@ -460,7 +569,9 @@ function declareWar(a, b) {
   G.n[a].wars.push(b); G.n[b].wars.push(a);
   G.n[a].since[b] = G.day; G.n[b].since[a] = G.day;
   delete G.truce[tkey(a, b)];
-  if (b === G.player) news(`${fullName(a)} ti ha dichiarato guerra!`, 'bad', G.n[a].capital);
+  G.ws[tkey(a, b)] = { start: G.day, cap: {}, kia: {} };
+  if (a === G.player) { relAdd(b, -60); relAll(-8, [b]); for (const x of G.n[b].allies) relAdd(x, -25); }
+  if (b === G.player) { relAdd(a, -40); raiseAlert(`${fullName(a)} ti ha dichiarato guerra!`, G.n[a].capital, true); }
   else if (a !== G.player && (nearPlayer(a) || nearPlayer(b))) news(`${fullName(a)} ha dichiarato guerra a ${fullName(b)}.`, '', G.n[b].capital);
   staticDirty = true;
   // the defender's allies are called in
@@ -474,12 +585,13 @@ function makePeace(a, b) {
   G.n[a].wars = G.n[a].wars.filter(x => x !== b);
   G.n[b].wars = G.n[b].wars.filter(x => x !== a);
   G.truce[tkey(a, b)] = G.day + TRUCE_DAYS;
+  if (a === G.player) relAdd(b, 10); if (b === G.player) relAdd(a, 10);
   staticDirty = true;
 }
 function makeAlliance(a, b) {
   if (allied(a, b) || a === b) return;
   G.n[a].allies.push(b); G.n[b].allies.push(a);
-  if (a === G.player || b === G.player) news(`Alleanza firmata con ${fullName(a === G.player ? b : a)}.`, 'good', G.n[a === G.player ? b : a].capital);
+  if (a === G.player || b === G.player) { const o = a === G.player ? b : a; relAdd(o, 30); news(`Alleanza firmata con ${fullName(o)}.`, 'good', G.n[o].capital); }
   staticDirty = true;
 }
 function breakAlliance(a, b, quiet) {
@@ -495,16 +607,20 @@ function allianceChance(n, other) {
   if (G.n[n].wars.some(w => atWar(other, w))) p += 0.5;
   if (armyOf(other) > armyOf(n)) p += 0.12;
   if (G.n[n].allies.length >= 4) p *= 0.3;
-  return p;
+  if (other === G.player || n === G.player) { const r = relOf(n === G.player ? other : n); if (r < -20) return 0; p += r / 150; }
+  return Math.max(0, p);
 }
 
-// ---------- armies on the move ----------
+// ---------- movement of land, air and sea forces ----------
 function provDist(a, b) {
   const p = W.provs[a].c, q = W.provs[b].c;
   let dx = Math.abs(p[0] - q[0]); dx = Math.min(dx, MW - dx);
   return Math.hypot(dx, p[1] - q[1]);
 }
-// shortest hop path through own and allied land; the last hop may enter `to` whoever owns it
+const isRoute = (a, b) => W.routeSet.has(a < b ? a + '-' + b : b + '-' + a);
+// an enemy fleet at either end of a sea crossing stops troops from crossing
+const routeBlocked = (owner, a, b) => G.fleets.some(f => (f.prov === a || f.prov === b) && atWar(f.owner, owner));
+// land path: through own and allied land (and open sea crossings); the last hop may enter `to`
 function findPath(owner, from, to) {
   if (from === to) return null;
   const passable = i => { const o = G.p[i].owner; return o === owner || allied(owner, o); };
@@ -513,7 +629,7 @@ function findPath(owner, from, to) {
   for (let k = 0; k < q.length; k++) {
     const a = q[k];
     for (const b of W.provs[a].nb) {
-      if (prev.has(b)) continue;
+      if (prev.has(b) || (isRoute(a, b) && routeBlocked(owner, a, b))) continue;
       prev.set(b, a);
       if (b === to) {
         const path = [to];
@@ -525,42 +641,199 @@ function findPath(owner, from, to) {
   }
   return null;
 }
+// sea path: hops between coastal provinces along the sea lanes
+function findSeaPath(from, to) {
+  if (from === to || !W.provs[from].coastal || !W.provs[to].coastal) return null;
+  const prev = new Map([[from, -1]]), q = [from];
+  for (let k = 0; k < q.length; k++) {
+    const a = q[k];
+    for (const b of W.navNb[a]) {
+      if (prev.has(b)) continue;
+      prev.set(b, a);
+      if (b === to) { const path = [to]; for (let x = a; x !== -1; x = prev.get(x)) path.unshift(x); return path; }
+      q.push(b);
+    }
+  }
+  return null;
+}
+// cumulative travel time per leg: own ground is quicker, sea crossings slower
+function legTimes(type, owner, path) {
+  const t = [0];
+  for (let k = 1; k < path.length; k++) {
+    const a = path[k - 1], b = path[k], d = provDist(a, b);
+    let v = type === 'air' ? AIR_SPEED : type === 'sea' ? SEA_SPEED : LAND_SPEED;
+    if (type === 'land') {
+      const friendly = o => o === owner || allied(owner, o);
+      if (isRoute(a, b)) v *= 0.6;
+      else if (friendly(G.p[a].owner) && friendly(G.p[b].owner)) v *= 1.3;
+    }
+    t.push(t[k - 1] + d / v);
+  }
+  return t;
+}
+function dispatch(owner, type, path, load) {
+  const tl = legTimes(type, owner, path), dur = Math.max(type === 'air' ? 0.4 : 1, tl[tl.length - 1]);
+  const m = { id: G.nextMove++, owner, type, path, tl: tl.map(x => x / (tl[tl.length - 1] || 1)), dep: G.time, arr: G.time + dur, ...load };
+  G.moves.push(m);
+  const to = path[path.length - 1], o = G.p[to].owner;
+  if (o === G.player && owner !== G.player && atWar(owner, o)) warnIncoming(m, to);
+  return m;
+}
 function sendArmy(owner, path, amount) {
   const from = path[0];
   amount = Math.min(Math.round(amount / 10) * 10, G.p[from].army);
   if (amount <= 0) return null;
   G.p[from].army -= amount;
-  const legs = [0];
-  for (let k = 1; k < path.length; k++) legs.push(legs[k - 1] + provDist(path[k - 1], path[k]));
-  const m = { id: G.nextMove++, owner, amount, path, legs, dep: G.time, arr: G.time + Math.max(0.6, legs[legs.length - 1] / MARCH_SPEED) };
-  G.moves.push(m);
-  return m;
+  let len = 0;
+  for (let k = 1; k < path.length; k++) len += provDist(path[k - 1], path[k]);
+  // long marches tire the troops: up to -30% attack strength
+  const morale = Math.max(0.7, Math.min(1, 1 - Math.max(0, len - 150) / 1200));
+  return dispatch(owner, 'land', path, { amount, morale });
+}
+function sendAir(owner, from, to, fgt, bmb, mission) {
+  const P = G.p[from];
+  fgt = Math.min(fgt, P.fgt); bmb = Math.min(bmb, P.bmb);
+  if (fgt + bmb <= 0) return null;
+  P.fgt -= fgt; P.bmb -= bmb;
+  return dispatch(owner, 'air', [from, to], { fgt, bmb, mission, home: from });
+}
+function sendFleet(owner, path, ships, mission, fromFleet) {
+  const from = path[0];
+  if (!fromFleet) { ships = Math.min(ships, G.p[from].ships); if (ships <= 0) return null; G.p[from].ships -= ships; }
+  return dispatch(owner, 'sea', path, { ships, mission });
 }
 function movePos(m, time) {
   const f = Math.max(0, Math.min(1, (time - m.dep) / (m.arr - m.dep)));
-  const total = m.legs[m.legs.length - 1], d = f * total;
   let k = 0;
-  while (k < m.legs.length - 2 && m.legs[k + 1] < d) k++;
+  while (k < m.tl.length - 2 && m.tl[k + 1] < f) k++;
   const a = W.provs[m.path[k]].c, b = W.provs[m.path[k + 1]].c;
-  const seg = m.legs[k + 1] - m.legs[k] || 1, t = (d - m.legs[k]) / seg;
+  const t = (f - m.tl[k]) / ((m.tl[k + 1] - m.tl[k]) || 1);
   let bx = b[0];
   if (Math.abs(bx - a[0]) > MW / 2) bx += bx > a[0] ? -MW : MW;
-  return { x: a[0] + (bx - a[0]) * t, y: a[1] + (b[1] - a[1]) * t, k };
+  let x = a[0] + (bx - a[0]) * t;
+  if (x < 0) x += MW; else if (x > MW) x -= MW;
+  return { x, y: a[1] + (b[1] - a[1]) * t, k };
 }
 function resolveMove(m) {
+  if (!G.n[m.owner].alive) return;
+  if (m.type === 'air') return resolveAir(m);
+  if (m.type === 'sea') return resolveSea(m);
   const to = m.path[m.path.length - 1], back = m.path[m.path.length - 2], o = G.p[to].owner, me = m.owner;
-  if (!G.n[me].alive) return;
   if (o === me) { G.p[to].army += m.amount; return; }
   if (atWar(me, o)) {
-    const defender = o, res = fight(back, to, m.amount, G.p[to].army, me);
+    const support = G.fleets.some(f => f.prov === to && f.owner === me) ? 1.2 : 1;
+    const defender = o, res = fight(back, to, m.amount, G.p[to].army, me, m.morale * support);
     burst(to, res.win);
     if (defender === G.player && !res.win) news(`Attacco di ${fullName(me)} respinto a ${pname(to)}.`, 'good', to);
     if (me === G.player && !res.win) news(`Attacco respinto a ${pname(to)}: persi ${fmt(res.lossA)} soldati.`, 'bad', to);
     return;
   }
-  // the war ended or the target became friendly: the troops go home
   const home = G.p[back].owner === me ? back : G.p[m.path[0]].owner === me ? m.path[0] : -1;
   if (home >= 0) G.p[home].army += m.amount;
+}
+function airHome(m) {
+  const home = G.p[m.home].owner === m.owner ? m.home : G.n[m.owner].capital;
+  return home;
+}
+function resolveAir(m) {
+  const to = m.path[1], P = G.p[to], o = P.owner, me = m.owner;
+  if (m.mission === 'rebase' || o === me) { P.fgt += m.fgt; P.bmb += m.bmb; return; }
+  if (!atWar(me, o)) { sendBack(m); return; }
+  // air battle against the fighters based there
+  let fgt = m.fgt, bmb = m.bmb;
+  const def = P.fgt;
+  if (def > 0) {
+    const att = fgt * 1 + bmb * 0.3, dv = def * 1.1 * (0.85 + Math.random() * 0.3);
+    const lossA = Math.round((fgt + bmb) * Math.min(0.6, 0.25 * dv / Math.max(0.1, att)));
+    const lossD = Math.round(def * Math.min(0.7, 0.3 * att / dv));
+    const lf = Math.min(fgt, Math.ceil(lossA * 0.6)); fgt -= lf; bmb = Math.max(0, bmb - (lossA - lf));
+    P.fgt = Math.max(0, def - lossD);
+  }
+  let killed = 0;
+  if (bmb + fgt > 0) {
+    killed = Math.min(Math.round(P.army * 0.6), Math.round((bmb * 150 + fgt * 25) * (0.7 + Math.random() * 0.6) / 10) * 10);
+    P.army -= killed;
+    if (bmb >= 3 && Math.random() < 0.5) P.fort = Math.max(0, P.fort - 1);
+    if (Math.random() < bmb * 0.04) P.eco = Math.max(1, P.eco - 1);
+    // ships in port are hit too
+    if (P.ships && bmb) P.ships = Math.max(0, P.ships - Math.round(bmb * 0.3 * Math.random()));
+    P.hit = G.day;
+    addKia(me, o, o, killed);
+  }
+  airFx(to);
+  if (me === G.player) news(`Bombardamento su ${pname(to)}: ${fmt(killed)} soldati nemici colpiti. Rientrano ${fgt} caccia e ${bmb} bombardieri.`, killed ? 'good' : '', to);
+  else if (o === G.player) raiseAlert(`Bombardamento di ${fullName(me)} su ${pname(to)}: persi ${fmt(killed)} soldati.`, to, false);
+  m.fgt = fgt; m.bmb = bmb;
+  sendBack(m);
+}
+function sendBack(m) {
+  if (m.fgt + m.bmb <= 0) return;
+  const home = airHome(m);
+  if (home < 0 || G.p[home].owner !== m.owner) return;
+  dispatch(m.owner, 'air', [m.path[1], home], { fgt: m.fgt, bmb: m.bmb, mission: 'rebase', home });
+}
+function navalBattle(attOwner, ships, prov) {
+  // defenders: ships in the port if its owner is at war with us, plus enemy fleets stationed there
+  const P = G.p[prov], foes = [];
+  if (P.owner !== attOwner && atWar(attOwner, P.owner) && P.ships) foes.push({ port: true, owner: P.owner, ships: P.ships });
+  for (const f of G.fleets) if (f.prov === prov && atWar(attOwner, f.owner)) foes.push(f);
+  const def = foes.reduce((s, f) => s + f.ships, 0);
+  if (!def) return { win: true, left: ships };
+  const a = ships * (0.85 + Math.random() * 0.3), d = def * 1.1 * (0.85 + Math.random() * 0.3);
+  const win = a > d;
+  const left = win ? Math.max(1, Math.round(ships * (1 - 0.6 * d / a))) : Math.round(ships * 0.3 * a / d);
+  const defLeftRatio = win ? 0 : Math.max(0, 1 - 0.6 * a / d);
+  for (const f of foes) {
+    const lost = f.ships - Math.round(f.ships * defLeftRatio);
+    addKia(attOwner, f.owner, f.owner, lost * 800);
+    if (f.port) P.ships = Math.round(P.ships * defLeftRatio); else f.ships = Math.round(f.ships * defLeftRatio);
+  }
+  G.fleets = G.fleets.filter(f => f.ships > 0);
+  addKia(attOwner, foes[0].owner, attOwner, (ships - left) * 800);
+  return { win, left };
+}
+function resolveSea(m) {
+  const to = m.path[m.path.length - 1], P = G.p[to], me = m.owner;
+  const hostile = P.owner !== me && atWar(me, P.owner);
+  const enemyHere = G.fleets.some(f => f.prov === to && atWar(me, f.owner)) || (hostile && P.ships > 0);
+  let ships = m.ships;
+  if (enemyHere) {
+    const r = navalBattle(me, ships, to);
+    seaFx(to, r.win);
+    if (me === G.player) news(r.win ? `Battaglia navale vinta a ${pname(to)}.` : `Flotta sconfitta a ${pname(to)}: rientrano ${r.left} navi.`, r.win ? 'good' : 'bad', to);
+    else if (P.owner === G.player || G.fleets.some(f => f.prov === to && f.owner === G.player)) news(r.win ? `La flotta di ${fullName(me)} ha vinto a ${pname(to)}.` : `Flotta di ${fullName(me)} respinta a ${pname(to)}.`, r.win ? 'bad' : 'good', to);
+    ships = r.left;
+    if (!r.win) { fleetHome(me, to, ships); return; }
+  }
+  if (P.owner === me) { P.ships += ships; return; }
+  if (hostile) {
+    // the fleet stays off the coast: blockade, and support for landings
+    const f = G.fleets.find(f => f.prov === to && f.owner === me);
+    if (f) f.ships += ships; else G.fleets.push({ owner: me, prov: to, ships });
+    if (P.owner === G.player) raiseAlert(`${fullName(me)} blocca il porto di ${pname(to)}.`, to, false);
+    else if (me === G.player) news(`Blocco navale a ${pname(to)}: la sua rendita è dimezzata.`, 'good', to);
+    staticDirty = true;
+    return;
+  }
+  fleetHome(me, to, ships);
+}
+function homePort(owner, near) {
+  let best = -1, bd = Infinity;
+  for (const i of provsOf(owner)) if (W.provs[i].coastal) { const d = provDist(i, near); if (d < bd) { bd = d; best = i; } }
+  return best;
+}
+function fleetHome(owner, from, ships) {
+  if (ships <= 0) return;
+  const port = homePort(owner, from);
+  if (port < 0) return;
+  const path = findSeaPath(from, port);
+  if (path) sendFleet(owner, path, ships, 'rebase', true);
+  else G.p[port].ships += ships;
+}
+function recallFleet(f) {
+  G.fleets = G.fleets.filter(x => x !== f);
+  fleetHome(f.owner, f.prov, f.ships);
+  staticDirty = true;
 }
 function processMoves() {
   if (!G.moves.length) return;
@@ -570,11 +843,13 @@ function processMoves() {
 }
 
 // ---------- battles and conquest ----------
-function fight(retreat, to, A, D, me) {
+function fight(retreat, to, A, D, me, mult = 1) {
+  const o = G.p[to].owner;
   if (D <= 0) { capture(to, me, A); return { win: true, lossA: 0, lossD: 0 }; }
-  const atk = A * (0.85 + Math.random() * 0.3), def = defense(to) * (0.85 + Math.random() * 0.3);
+  const atk = A * mult * (0.85 + Math.random() * 0.3), def = defense(to) * (0.85 + Math.random() * 0.3);
   if (atk > def) {
     const surv = Math.max(10, Math.round(A * (1 - 0.6 * def / atk) / 10) * 10);
+    addKia(me, o, me, A - surv); addKia(me, o, o, D);
     capture(to, me, surv);
     return { win: true, lossA: A - surv, lossD: D };
   }
@@ -582,31 +857,59 @@ function fight(retreat, to, A, D, me) {
   G.p[to].army = survD;
   const back = Math.round(A * 0.25 * atk / def / 10) * 10;
   if (retreat >= 0 && G.p[retreat].owner === me) G.p[retreat].army += back;
+  addKia(me, o, me, A - back); addKia(me, o, o, D - survD);
   return { win: false, lossA: A - back, lossD: D - survD };
 }
 function capture(i, newOwner, army) {
   const p = G.p[i], old = p.owner;
+  const s = wstat(old, newOwner); s.cap[newOwner] = (s.cap[newOwner] || 0) + 1;
   p.owner = newOwner; p.army = army;
   p.eco = Math.max(1, p.eco - 1); p.fort = Math.max(0, p.fort - 1);
+  // planes on the ground and ships in port are captured or scuttled
+  p.fgt = 0; p.bmb = 0; p.ships = 0;
+  for (const f of G.fleets.filter(f => f.prov === i && f.owner === newOwner)) { p.ships += f.ships; f.ships = 0; }
+  G.fleets = G.fleets.filter(f => f.ships > 0);
   ownVer++; bordersDirty = true; staticDirty = true;
-  if (newOwner === G.player) { conquestFx(i, 'win'); announce('win', pname(i), i); }
+  if (newOwner === G.player) { conquestFx(i, 'win'); announce('win', pname(i), i); relAdd(old, -3); }
   else if (old === G.player) { conquestFx(i, 'loss'); announce('loss', pname(i), i); }
   else conquestFx(i, 'other');
   if (G.n[old].capital === i) {
     const rest = provsOf(old).slice().sort((x, y) => G.p[y].eco - G.p[x].eco || G.p[y].army - G.p[x].army);
     if (rest.length) {
       G.n[old].capital = rest[0];
-      if (old === G.player) news(`La capitale è stata spostata a ${pname(rest[0])}.`, 'bad', rest[0]);
+      if (old === G.player) raiseAlert(`La capitale è caduta! Nuova capitale: ${pname(rest[0])}.`, rest[0], true);
     }
   }
   if (!provsOf(old).length) {
     G.n[old].alive = false;
     for (const w of G.n[old].wars.slice()) makePeace(old, w);
     for (const x of G.n[old].allies.slice()) breakAlliance(old, x, true);
+    G.fleets = G.fleets.filter(f => f.owner !== old);
+    G.moves = G.moves.filter(m => m.owner !== old);
     if (old !== G.player && (newOwner === G.player || nearPlayer(newOwner)))
       news(`${fullName(old)} è stato annesso da ${fullName(newOwner)}.`, newOwner === G.player ? 'good' : '', i);
   }
   if (old === G.player || newOwner === G.player) checkEnd();
+}
+
+// ---------- supply: land cut off from the capital slowly loses its army ----------
+function updateSupply() {
+  for (let n = 0; n < G.n.length; n++) {
+    const x = G.n[n];
+    if (!x.alive) continue;
+    const ok = new Set([x.capital]), q = [x.capital];
+    for (let k = 0; k < q.length; k++) for (const b of W.provs[q[k]].nb) {
+      if (ok.has(b)) continue;
+      const o = G.p[b].owner;
+      if ((o === n || allied(n, o)) && !(isRoute(q[k], b) && routeBlocked(n, q[k], b))) { ok.add(b); q.push(b); }
+    }
+    for (const i of provsOf(n)) {
+      const sup = ok.has(i) ? 1 : 0;
+      if (!sup) G.p[i].army = Math.floor(G.p[i].army * 0.96);
+      if (n === G.player && G.p[i].sup && !sup) news(`${pname(i)} è senza rifornimenti: le truppe si indeboliscono.`, 'bad', i);
+      G.p[i].sup = sup;
+    }
+  }
 }
 
 // ---------- nuclear weapons ----------
@@ -622,17 +925,19 @@ function launchNuke(att, target) {
   if (G.n[att].nukes <= 0 || target < 0) return false;
   G.n[att].nukes--;
   const P = G.p[target], victim = P.owner;
+  addKia(att, victim, victim, P.army * 0.95);
   P.army = Math.round(P.army * 0.05 / 10) * 10;
-  P.eco = 1; P.fort = 0; P.rad = G.day + RAD_DAYS;
+  P.eco = 1; P.fort = 0; P.rad = G.day + RAD_DAYS; P.fgt = 0; P.bmb = 0; P.ships = 0;
   for (const j of W.provs[target].landNb) G.p[j].army = Math.round(G.p[j].army * 0.7 / 10) * 10;
-  // armies marching through the blast are lost
   G.moves = G.moves.filter(m => { const pos = movePos(m, G.time); return Math.hypot(pos.x - W.provs[target].c[0], pos.y - W.provs[target].c[1]) > 40; });
+  G.fleets = G.fleets.filter(f => f.prov !== target);
   if (victim !== att && G.n[victim].nukes > 0) G.retal.push([victim, att]);
   for (const m of neighborNations(att)) if (m !== G.player && m !== victim && !atWar(m, att) && !allied(m, att) && G.n[m].alive && Math.random() < 0.12) declareWar(m, att);
+  if (att === G.player) { relAll(-35); relAdd(victim, -100); }
   staticDirty = true;
   const where = pname(target);
   if (att === G.player) news(`Testata nucleare su ${where}. Il mondo guarda con orrore.`, 'bad', target);
-  else if (victim === G.player) { news(`${fullName(att)} ha colpito ${where} con un'arma nucleare!`, 'bad', target); const c = W.provs[target].c; centerOn(c[0], c[1], Math.max(cam.s, 0.9), 0.45); }
+  else if (victim === G.player) { raiseAlert(`${fullName(att)} ha colpito ${where} con un'arma nucleare!`, target, true); const c = W.provs[target].c; centerOn(c[0], c[1], Math.max(cam.s, 0.9), 0.45); }
   else news(`${fullName(att)} ha lanciato un'arma nucleare su ${where} (${fullName(victim)}).`, 'bad', target);
   nukeAnim(att, target);
   return true;
@@ -661,7 +966,11 @@ function aiTick(n) {
   // diplomacy
   const nb = neighborNations(n);
   if (me.wars.length === 0 && Math.random() < 0.005) {
-    const cands = nb.filter(m => G.n[m].alive && !truceLeft(n, m) && !allied(n, m) && armyOf(m) < myArmy * 0.7);
+    const cands = nb.filter(m => {
+      if (!G.n[m].alive || truceLeft(n, m) || allied(n, m)) return false;
+      if (m === G.player) { const r = relOf(n); if (r > 40) return false; return armyOf(m) < myArmy * (0.7 + Math.max(0, -r) / 200); }
+      return armyOf(m) < myArmy * 0.7;
+    });
     if (cands.length) { cands.sort((a, b) => armyOf(a) - armyOf(b)); declareWar(n, cands[0]); }
   }
   for (const m of me.wars.slice()) {
@@ -673,10 +982,10 @@ function aiTick(n) {
     }
   }
   if (Math.random() < 0.02) {
-    // look for partners: enemies of my enemies first, then any big neighbour
     const pool = new Set();
     for (const w of me.wars) for (const x of G.n[w].wars) if (x !== n) pool.add(x);
     if (!pool.size) for (const x of nb) pool.add(x);
+    if (relOf(n) > 40 && G.player >= 0) pool.add(G.player);
     const cand = shuffle([...pool]).find(x => G.n[x].alive && allianceChance(n, x) > 0);
     if (cand !== undefined) {
       if (cand === G.player) {
@@ -686,14 +995,40 @@ function aiTick(n) {
   }
 
   // military: attack weak enemy provinces next door
-  const marching = new Set(G.moves.filter(m => m.owner === n).map(m => m.path[m.path.length - 1]));
-  const enemyNb = i => W.provs[i].nb.filter(j => atWar(n, G.p[j].owner));
+  const marching = new Set(G.moves.filter(m => m.owner === n && m.type === 'land').map(m => m.path[m.path.length - 1]));
+  const enemyNb = i => W.provs[i].nb.filter(j => atWar(n, G.p[j].owner) && !(isRoute(i, j) && routeBlocked(n, i, j)));
   for (const i of shuffle(provsOf(n).slice())) {
     if (G.p[i].owner !== n || G.p[i].army < 300) continue;
     const targets = enemyNb(i).filter(t => !marching.has(t)).sort((a, b) => defense(a) - defense(b));
     if (!targets.length) continue;
-    const t = targets[0], send = G.p[i].army * 0.8;
-    if (send > defense(t) * 1.25 + 200) { sendArmy(n, [i, t], send); marching.add(t); }
+    const t = targets[0], send = G.p[i].army * 0.75;
+    if (send > defense(t) * 1.4 + 300) { sendArmy(n, [i, t], send); marching.add(t); }
+  }
+
+  // air and naval operations while at war
+  if (me.wars.length) {
+    for (const i of provsOf(n)) {
+      const P = G.p[i];
+      if (P.bmb > 0 && Math.random() < 0.5) {
+        let best = -1, bv = 0;
+        for (const w of me.wars) for (const t of provsOf(w)) {
+          if (provDist(i, t) > AIR_RANGE) continue;
+          const v = G.p[t].army - G.p[t].fgt * 400;
+          if (v > bv) { bv = v; best = t; }
+        }
+        if (best >= 0) sendAir(n, i, best, Math.floor(P.fgt / 2), P.bmb, 'strike');
+      }
+      if (P.ships >= 2 && W.provs[i].coastal && Math.random() < 0.3) {
+        let best = null;
+        for (const w of me.wars) for (const t of provsOf(w)) {
+          if (!W.provs[t].coastal || provDist(i, t) > 500 || G.fleets.some(f => f.prov === t && f.owner === n)) continue;
+          if (G.p[t].ships > P.ships) continue;
+          const path = findSeaPath(i, t);
+          if (path && (!best || path.length < best.length)) best = path;
+        }
+        if (best) sendFleet(n, best, P.ships, 'station');
+      }
+    }
   }
 
   // move reserves toward the front while at war
@@ -716,10 +1051,17 @@ function aiTick(n) {
     if (step !== undefined) sendArmy(n, [i, step], G.p[i].army - 300);
   }
 
-  // recruit where the threat is highest, and grow the economy in peacetime
+  // spend: soldiers where the threat is highest, some planes and ships at war, economy in peace
   const fronts = owned.filter(i => dist.get(i) === 0);
   const want = me.wars.length ? Infinity : owned.length * 1600 + 2000;
-  let army = myArmy, guard = 0;
+  if (me.wars.length && me.gold > 150) {
+    const cap = G.p[me.capital];
+    if (Math.random() < 0.25) { me.gold -= FGT_COST; cap.fgt++; }
+    if (Math.random() < 0.2 && me.gold > BMB_COST) { me.gold -= BMB_COST; cap.bmb++; }
+    const port = W.provs[me.capital].coastal ? me.capital : owned.find(i => W.provs[i].coastal);
+    if (port !== undefined && Math.random() < 0.15 && me.gold > SHIP_COST) { me.gold -= SHIP_COST; G.p[port].ships++; }
+  }
+  let army = forcesOf(n).army, guard = 0;
   while (me.gold >= RECRUIT_COST + 15 && army < want && guard++ < 20) {
     let target = me.capital, worst = -Infinity;
     for (const i of fronts) {
@@ -733,6 +1075,22 @@ function aiTick(n) {
     const cheap = owned.filter(i => G.p[i].eco < 5).sort((a, b) => G.p[a].eco - G.p[b].eco)[0];
     if (cheap !== undefined && me.gold >= ecoCost(cheap)) { me.gold -= ecoCost(cheap); G.p[cheap].eco++; }
   }
+}
+
+// ---------- alerts ----------
+const warned = {};
+function raiseAlert(msg, prov, important) {
+  news(msg, 'bad', prov);
+  if (important && G.autoPause && phase === 'play' && speedIdx) { setSpeed(0); toast('Gioco in pausa per l\'allarme. Premi 1× per riprendere.'); }
+}
+function warnIncoming(m, to) {
+  const key = to + ':' + m.type;
+  if ((warned[key] || -99) > G.day - 3) return;
+  warned[key] = G.day;
+  const days = Math.max(1, Math.round(m.arr - G.time));
+  const what = m.type === 'air' ? `Aerei di ${fullName(m.owner)}` : m.type === 'sea' ? `Flotta di ${fullName(m.owner)}` : `${fmt(m.amount)} soldati di ${fullName(m.owner)}`;
+  const isCap = G.n[G.player].capital === to;
+  raiseAlert(`${what} in arrivo su ${pname(to)}${isCap ? ' (capitale)' : ''} tra ${days} ${days === 1 ? 'giorno' : 'giorni'}.`, to, isCap && m.type === 'land');
 }
 
 // ---------- the clock ----------
@@ -750,13 +1108,22 @@ function dailyUpdate() {
     if (n !== G.player && (n + G.day) % AI_EVERY === 0) aiTick(n);
   }
   for (const k in G.truce) if (G.truce[k] <= G.day) delete G.truce[k];
+  // fleets go home when their war is over
+  for (const f of G.fleets.slice()) if (!G.n[f.owner].alive || !atWar(f.owner, G.p[f.prov].owner)) recallFleet(f);
+  if (G.day % 10 === 0) updateSupply();
+  if (G.day % 30 === 0) for (let n = 0; n < G.rel.length; n++) G.rel[n] = Math.round((G.rel[n] || 0) * 0.95);
+  if (G.day % 15 === 0 && G.player >= 0) {
+    const f = forcesOf(G.player);
+    G.hist.push({ d: G.day, gold: Math.floor(G.n[G.player].gold), prov: provsOf(G.player).length, army: f.army, inc: income(G.player).net });
+    if (G.hist.length > 240) G.hist.shift();
+  }
   if (G.day % 10 === 0) save();
 }
 let lastTs = 0, lastDayShown = -1;
 function gameStep(ts) {
   const dt = Math.min(0.25, Math.max(0, (ts - lastTs) / 1000));
   lastTs = ts;
-  if (phase !== 'play' || modalOpen || !SPEEDS[speedIdx]) return false;
+  if (phase !== 'play' || modalOpen || dashOpen || !SPEEDS[speedIdx]) return false;
   G.time += dt * SPEEDS[speedIdx];
   while (G.day < Math.floor(G.time) && phase === 'play') { G.day++; dailyUpdate(); }
   processMoves();
@@ -770,38 +1137,56 @@ function checkEnd() {
 }
 
 // ---------- player actions ----------
-function recruit(i) {
+function spend(cost) {
   const me = G.n[G.player];
-  if (me.gold < RECRUIT_COST) return toast('Oro insufficiente.', 'bad');
-  me.gold -= RECRUIT_COST; G.p[i].army += RECRUIT;
+  if (me.gold < cost) { toast('Oro insufficiente.', 'bad'); return false; }
+  me.gold -= cost; return true;
+}
+function recruit(i, kind) {
+  const P = G.p[i];
+  if (kind === 'inf' && spend(RECRUIT_COST)) P.army += RECRUIT;
+  else if (kind === 'fgt' && spend(FGT_COST)) P.fgt++;
+  else if (kind === 'bmb' && spend(BMB_COST)) P.bmb++;
+  else if (kind === 'ship' && W.provs[i].coastal && spend(SHIP_COST)) P.ships++;
   afterAction();
 }
-function upgradeEco(i) {
-  const me = G.n[G.player], c = ecoCost(i);
-  if (G.p[i].eco >= 5 || me.gold < c) return;
-  me.gold -= c; G.p[i].eco++;
-  afterAction();
-}
-function fortify(i) {
-  const me = G.n[G.player], c = fortCost(i);
-  if (G.p[i].fort >= 3 || me.gold < c) return;
-  me.gold -= c; G.p[i].fort++;
-  afterAction();
-}
-function afterAction() { save(); updateHUD(); renderPanel(); staticDirty = true; requestRender(); }
+function upgradeEco(i) { if (G.p[i].eco < 5 && spend(ecoCost(i))) G.p[i].eco++; afterAction(); }
+function fortify(i) { if (G.p[i].fort < 3 && spend(fortCost(i))) G.p[i].fort++; afterAction(); }
+function afterAction() { save(); updateHUD(); renderPanel(); if (dashOpen) renderDash(); staticDirty = true; requestRender(); }
 function moveAmount() { const el = document.getElementById('moveAmt'); return el ? +el.value : 0; }
+const daysWord = d => d + ' ' + (d === 1 ? 'giorno' : 'giorni');
 function orderMove(from, to) {
   const me = G.player, o = G.p[to].owner;
+  if (moveMode === 'air') {
+    const P = G.p[from], d = provDist(from, to);
+    if (d > AIR_RANGE) { toast(`Fuori raggio: gli aerei arrivano fino a ${AIR_RANGE} km di mappa (${pname(to)} è a ${Math.round(d)}).`, 'bad'); return false; }
+    if (o === me) { const m = sendAir(me, from, to, P.fgt, P.bmb, 'rebase'); if (m) toast(`Aerei trasferiti a ${pname(to)}.`); afterAction(); return !!m; }
+    if (!atWar(me, o)) { toast(`Puoi bombardare solo paesi in guerra con te.`); return false; }
+    const m = sendAir(me, from, to, P.fgt, P.bmb, 'strike');
+    if (!m) { toast('Nessun aereo qui.'); return false; }
+    toast(`Missione aerea su ${pname(to)}: ${m.fgt} caccia e ${m.bmb} bombardieri in volo.`, 'bad');
+    afterAction(); return true;
+  }
+  if (moveMode === 'sea') {
+    if (!W.provs[to].coastal) { toast(`${pname(to)} non ha coste: la flotta non può arrivarci.`, 'bad'); return false; }
+    if (o !== me && !atWar(me, o)) { toast(`La flotta può andare nei tuoi porti o sulle coste di un nemico in guerra.`); return false; }
+    const path = findSeaPath(from, to);
+    if (!path) { toast('Nessuna rotta navale fin lì.', 'bad'); return false; }
+    const m = sendFleet(me, path, G.p[from].ships, o === me ? 'rebase' : 'station');
+    if (!m) { toast('Nessuna nave qui.'); return false; }
+    toast(`${m.ships} navi in rotta verso ${pname(to)}: arrivo in ${daysWord(Math.max(1, Math.round(m.arr - m.dep)))}.`, o === me ? '' : 'bad');
+    afterAction(); return true;
+  }
   if (o !== me && !atWar(me, o)) {
     toast(allied(me, o) ? `${pname(to)} è di un alleato: puoi solo attraversarla.` : `Sei in pace con ${fullName(o)}: dichiara guerra per attaccare.`);
     return false;
   }
   const path = findPath(me, from, to);
-  if (!path) { toast(`Nessun percorso via terra o mare da ${pname(from)} a ${pname(to)}.`, 'bad'); return false; }
+  if (!path) { toast(`Nessun percorso libero da ${pname(from)} a ${pname(to)}. Le rotte bloccate da flotte nemiche non si possono attraversare.`, 'bad'); return false; }
   const m = sendArmy(me, path, Math.min(moveAmount(), G.p[from].army));
   if (!m) { toast('Nessuna truppa da inviare.'); return false; }
   const days = Math.max(1, Math.round(m.arr - m.dep));
-  toast(`${fmt(m.amount)} soldati in marcia verso ${pname(to)}: arrivo in ${days} ${days === 1 ? 'giorno' : 'giorni'}.`, o === me ? '' : 'bad');
+  toast(`${fmt(m.amount)} soldati in marcia verso ${pname(to)}: arrivo in ${daysWord(days)}${o !== me && m.morale < 0.98 ? `, morale ${Math.round(m.morale * 100)}%` : ''}.`, o === me ? '' : 'bad');
   afterAction();
   return true;
 }
@@ -815,7 +1200,7 @@ function playerDeclare(n) {
 function playerPeace(n) {
   if ((G.asked['pp' + n] || 0) > G.day) return;
   G.asked['pp' + n] = G.day + 30;
-  const ok = armyOf(n) < armyOf(G.player) * 0.8 || Math.random() < 0.18;
+  const ok = armyOf(n) < armyOf(G.player) * 0.8 || Math.random() < 0.18 + Math.max(0, relOf(n)) / 200;
   if (ok) { makePeace(G.player, n); news(`${fullName(n)} accetta la pace. Tregua di 10 mesi.`, 'good', G.n[n].capital); }
   else toast(`${fullName(n)} rifiuta la pace.`, 'bad');
   afterAction();
@@ -826,10 +1211,18 @@ function playerAlly(n) {
   let p = allianceChance(n, G.player);
   if (p > 0) p = Math.min(0.9, p + 0.1);
   if (Math.random() < p) makeAlliance(G.player, n);
-  else toast(`${fullName(n)} rifiuta l'alleanza. Riprova tra un mese.`, 'bad');
+  else toast(`${fullName(n)} rifiuta l'alleanza${relOf(n) < 0 ? ': i rapporti sono freddi' : ''}. Riprova tra un mese.`, 'bad');
   afterAction();
 }
-function playerBreak(n) { pendingConfirm = null; breakAlliance(G.player, n); afterAction(); }
+function playerAid(n) {
+  if ((G.asked['ai' + n] || 0) > G.day || !spend(AID_COST)) return;
+  G.asked['ai' + n] = G.day + 30;
+  G.n[n].gold += AID_COST;
+  relAdd(n, 10);
+  toast(`Aiuti inviati a ${fullName(n)}: rapporti migliorati.`, 'good');
+  afterAction();
+}
+function playerBreak(n) { pendingConfirm = null; breakAlliance(G.player, n); relAdd(n, -40); relAll(-6, [n]); afterAction(); }
 function playerNuke(i) {
   const me = G.player, o = G.p[i].owner;
   if (!atWar(me, o) || G.n[me].nukes <= 0) return;
@@ -843,17 +1236,17 @@ function playerNuke(i) {
 }
 function startProgram() {
   const me = G.n[G.player];
-  if (me.prog >= 0 || me.gold < NUKE_PROGRAM_COST) return;
-  me.gold -= NUKE_PROGRAM_COST; me.prog = G.day + NUKE_PROGRAM_DAYS;
+  if (me.prog >= 0 || !spend(NUKE_PROGRAM_COST)) return;
+  me.prog = G.day + NUKE_PROGRAM_DAYS;
   toast(`Programma nucleare avviato: pronto tra ${Math.round(NUKE_PROGRAM_DAYS / 30)} mesi.`);
-  afterAction(); showArsenal();
+  afterAction();
 }
 function buildNuke() {
   const me = G.n[G.player];
-  if (me.prog !== 0 || me.gold < NUKE_COST) return;
-  me.gold -= NUKE_COST; me.nukes++;
+  if (me.prog !== 0 || !spend(NUKE_COST)) return;
+  me.nukes++;
   toast('Nuova testata nucleare pronta.');
-  afterAction(); showArsenal();
+  afterAction();
 }
 
 // ---------- rendering ----------
@@ -1081,6 +1474,8 @@ function conquestFx(i, kind) {
   if (kind === 'other' && anims.length > 100) return;
   anims.push({ kind: 'conquest', i, t0: performance.now(), dur: kind === 'other' ? 1400 : 2600, how: kind });
 }
+function airFx(i) { anims.push({ kind: 'burst', p: W.provs[i].c, t0: performance.now(), dur: 900, color: '#ffa64d' }); }
+function seaFx(i, win) { anims.push({ kind: 'burst', p: W.provs[i].c, t0: performance.now(), dur: 900, color: win ? '#7fb8ff' : '#ff4d5e' }); }
 function nukeAnim(att, target) {
   const a = W.provs[G.n[att].capital]?.c || W.provs[provsOf(att)[0]].c, b = W.provs[target].c;
   anims.push({ kind: 'nuke', a, b, t0: performance.now(), dur: 1700, boom: 3400 });
@@ -1356,7 +1751,20 @@ function drawOverlays(now) {
     if (c.showArmy) {
       ctx.font = '800 11px ' + FONT_BODY;
       const w = ctx.measureText(fmt(P.army)).width + 22 + (c.isCap ? 12 : 0);
-      if (free(c.x - w / 2, c.y - 10, w, 19)) { placed.push([c.x - w / 2, c.y - 10, w, 19]); armyPill(c.x, c.y, P, c.mine, c.isCap); continue; }
+      if (free(c.x - w / 2, c.y - 10, w, 19)) {
+        placed.push([c.x - w / 2, c.y - 10, w, 19]); armyPill(c.x, c.y, P, c.mine, c.isCap);
+        const air = P.fgt + P.bmb;
+        if ((air || P.ships) && (c.mine || s > 1.6)) {
+          const t = (air ? AIR_ICON + air : '') + (air && P.ships ? '  ' : '') + (P.ships ? SEA_ICON + P.ships : '');
+          ctx.font = '800 10px ' + FONT_BODY; const tw = ctx.measureText(t).width + 10;
+          if (free(c.x - tw / 2, c.y + 10, tw, 14)) {
+            placed.push([c.x - tw / 2, c.y + 10, tw, 14]);
+            roundRect(c.x - tw / 2, c.y + 10, tw, 14, 7); ctx.fillStyle = 'rgba(10, 14, 26, 0.8)'; ctx.fill();
+            ctx.fillStyle = '#cfe0ff'; ctx.textAlign = 'center'; ctx.fillText(t, c.x, c.y + 17.5);
+          }
+        }
+        continue;
+      }
     }
     if (c.isCap && (s > 0.5 || c.mine) && free(c.x - 5, c.y - 5, 10, 10)) { placed.push([c.x - 5, c.y - 5, 10, 10]); capitalDot(c.x, c.y, markColor(P.owner)); }
   }
@@ -1373,8 +1781,24 @@ function drawOverlays(now) {
     }
     ctx.shadowBlur = 0; ctx.shadowColor = 'transparent';
   }
-  if (phase === 'play') drawMarches(now);
+  if (phase === 'play') { drawFleets(); drawMarches(now); }
   drawEffects(now);
+}
+// fleets on station off enemy coasts
+function drawFleets() {
+  const s = cam.s;
+  for (const f of G.fleets) {
+    const c = W.provs[f.prov].c, x = c[0] * s + cam.x + 16, y = c[1] * s + cam.y + 14;
+    if (x < -30 || y < -30 || x > vw + 30 || y > vh + 30) continue;
+    const r = relation(f.owner), col = r === 'own' ? '#4da3ff' : r === 'war' ? '#ff4d5e' : r === 'ally' ? '#3ddc97' : '#e3e8f0';
+    ctx.save();
+    ctx.shadowColor = 'rgba(0,0,0,.5)'; ctx.shadowBlur = 6;
+    roundRect(x - 15, y - 9, 30, 18, 9); ctx.fillStyle = 'rgba(10, 14, 26, 0.92)'; ctx.fill();
+    ctx.shadowBlur = 0; ctx.strokeStyle = col; ctx.lineWidth = 1.5; ctx.stroke();
+    ctx.font = '800 10.5px ' + FONT_BODY; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = col;
+    ctx.fillText(SEA_ICON + ' ' + f.ships, x, y + 0.5);
+    ctx.restore();
+  }
 }
 // armies in transit: the road still ahead, and a token with the troop count
 function drawMarches(now) {
@@ -1405,13 +1829,21 @@ function drawMarches(now) {
     ctx.shadowColor = 'rgba(0,0,0,.5)'; ctx.shadowBlur = 6;
     ctx.beginPath(); ctx.arc(0, 0, mine ? 9 : 7, 0, 7); ctx.fillStyle = 'rgba(10, 14, 26, 0.92)'; ctx.fill();
     ctx.shadowBlur = 0; ctx.lineWidth = 2; ctx.strokeStyle = col; ctx.stroke();
-    ctx.rotate(ang); ctx.fillStyle = col;
-    ctx.beginPath(); ctx.moveTo(5, 0); ctx.lineTo(-3, -4.5); ctx.lineTo(-1, 0); ctx.lineTo(-3, 4.5); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = col;
+    if (m.type === 'land') {
+      ctx.rotate(ang);
+      ctx.beginPath(); ctx.moveTo(5, 0); ctx.lineTo(-3, -4.5); ctx.lineTo(-1, 0); ctx.lineTo(-3, 4.5); ctx.closePath(); ctx.fill();
+    } else {
+      ctx.font = '700 11px ' + FONT_BODY; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      if (m.type === 'air') ctx.rotate(ang);
+      ctx.fillText(m.type === 'air' ? AIR_ICON : SEA_ICON, 0, 0.5);
+    }
     ctx.restore();
     if (mine || s > 0.9) {
+      const label = m.type === 'air' ? String(m.fgt + m.bmb) : m.type === 'sea' ? String(m.ships) : fmt(m.amount);
       ctx.font = '800 10.5px ' + FONT_BODY; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       ctx.fillStyle = '#fff'; ctx.shadowColor = 'rgba(0,0,0,.8)'; ctx.shadowBlur = 4;
-      ctx.fillText(fmt(m.amount), x, y - 16); ctx.shadowBlur = 0; ctx.shadowColor = 'transparent';
+      ctx.fillText(label, x, y - 16); ctx.shadowBlur = 0; ctx.shadowColor = 'transparent';
     }
   }
 }
@@ -1640,70 +2072,103 @@ function updateHUD() {
   $('topName').textContent = nat(me).place;
   $('topDate').textContent = dateStr(G.day);
   $('topGold').innerHTML = `${Math.floor(x.gold)} <small class="${inc.net < 0 ? 'neg' : ''}">${inc.net >= 0 ? '+' : ''}${inc.net}</small>`;
-  $('topArmy').textContent = fmt(armyOf(me));
-  $('topNukes').textContent = x.prog > 0 ? Math.ceil((x.prog - G.day) / 30) + ' m' : x.nukes;
 }
 function updateUI() { updateHUD(); renderPanel(); }
 
 // the panel follows the game live, but never rebuilds under a finger on the slider
 let sliderBusy = false, panelSig = '', moveKeep = 0;
+function panelSignature(i) {
+  const P = G.p[i], me = G.player;
+  return [P.owner, P.army, P.fgt, P.bmb, P.ships, P.eco, P.fort, P.sup, Math.floor(G.n[me].gold / 5), radLeft(i), blockaded(i), G.n[me].wars.length, G.n[me].allies.length, G.moves.length].join();
+}
 function refreshPanel() {
   if (selected < 0 || sliderBusy || phase !== 'play') return;
-  const P = G.p[selected];
-  const sig = [P.owner, P.army, P.eco, P.fort, Math.floor(G.n[G.player].gold / 5), radLeft(selected), G.n[G.player].wars.length, G.n[G.player].allies.length].join();
-  if (sig !== panelSig) renderPanel();
+  if (panelSignature(selected) !== panelSig) renderPanel();
+  if (dashOpen) renderDash();
 }
+const AIR_ICON = '✈︎', SEA_ICON = '⚓︎';
 function renderPanel() {
   const panel = $('panel');
   if (phase !== 'play' || selected < 0) { panel.hidden = true; return; }
   const i = selected, P = G.p[i], o = P.owner, me = G.player, gold = G.n[me].gold;
-  panelSig = [P.owner, P.army, P.eco, P.fort, Math.floor(gold / 5), radLeft(i), G.n[me].wars.length, G.n[me].allies.length].join();
+  panelSig = panelSignature(i);
   const isCap = G.n[o].capital === i;
   const pr = W.provs[i];
   const origin = pr.country !== o ? ` · un tempo ${esc(nat(pr.country).place)}` : '';
   const meter = (v, max) => '<div class="meter">' + Array.from({ length: max }, (_, k) => `<i class="${k < v ? 'on' : ''}"></i>`).join('') + '</div>';
-  const incoming = G.moves.filter(m => m.path[m.path.length - 1] === i && m.owner !== o).reduce((s, m) => s + m.amount, 0);
+  const incoming = G.moves.filter(m => m.path[m.path.length - 1] === i && m.owner !== o && atWar(m.owner, o));
+  const inSoldiers = incoming.reduce((s, m) => s + (m.amount || 0), 0), inAir = incoming.some(m => m.type === 'air'), inSea = incoming.some(m => m.type === 'sea');
+  const visible = o === me || allied(me, o) || atWar(me, o);
   let html = `<div class="head"><span class="chip" style="background:${nat(o).color}"></span>
-    <div style="min-width:0;flex:1"><h2>${esc(pr.name)}${isCap ? '<span class="cap-badge">Capitale</span>' : ''}</h2><div class="sub">${esc(fullName(o))}${origin} · ${popStr(pr.pop)} abitanti</div></div>
+    <div style="min-width:0;flex:1"><h2>${esc(pr.name)}${isCap ? '<span class="cap-badge">Capitale</span>' : ''}</h2><div class="sub">${esc(fullName(o))}${origin} · ${popStr(pr.pop)} abitanti · rendita +${provIncome(i)}</div></div>
     <button class="icon-btn" id="closePanel" aria-label="Chiudi" style="background:rgba(255,255,255,.06)"><svg><use href="#i-close"/></svg></button></div>
-    <div class="grid4">
+    <div class="grid6">
       <div class="cell"><span>Truppe</span><b>${fmt(P.army)}</b></div>
+      <div class="cell"><span>Caccia</span><b>${visible ? P.fgt : '?'}</b></div>
+      <div class="cell"><span>Bombard.</span><b>${visible ? P.bmb : '?'}</b></div>
+      <div class="cell"><span>Navi</span><b>${pr.coastal ? (visible ? P.ships : '?') : '—'}</b></div>
       <div class="cell"><span>Economia</span><b>${P.eco}</b>${meter(P.eco, 5)}</div>
       <div class="cell"><span>Fortezza</span><b>${P.fort}</b>${meter(P.fort, 3)}</div>
-      <div class="cell"><span>Rendita</span><b>+${provIncome(i)}</b></div>
     </div>`;
-  if (radLeft(i)) html += `<div class="vs"><span class="tag rad">Contaminata · ${Math.ceil(radLeft(i) / 30)} mesi</span><span class="sub">Nessuna rendita finché la radioattività non cala.</span></div>`;
-  if (incoming && (o === me || atWar(me, o))) html += `<div class="vs"><span class="tag war">${o === me ? 'Sotto attacco' : 'Attacco in corso'}</span><span class="sub">${fmt(incoming)} soldati in arrivo</span></div>`;
+  const tags = [];
+  if (radLeft(i)) tags.push(`<span class="tag rad">Contaminata · ${Math.ceil(radLeft(i) / 30)} mesi</span>`);
+  if (blockaded(i)) tags.push('<span class="tag war">Porto bloccato · rendita dimezzata</span>');
+  if (!P.sup) tags.push('<span class="tag truce">Senza rifornimenti</span>');
+  if (recentlyBombed(i)) tags.push('<span class="tag war">Bombardata · difesa −25%</span>');
+  const stationed = G.fleets.filter(f => f.prov === i);
+  for (const f of stationed) tags.push(`<span class="tag ${f.owner === me ? 'ally' : 'war'}">${SEA_ICON} ${f.ships} navi di ${esc(fullName(f.owner))}</span>`);
+  if (incoming.length && (o === me || atWar(me, o))) tags.push(`<span class="tag war">${o === me ? 'Sotto attacco' : 'Attacco in corso'}: ${[inSoldiers ? fmt(inSoldiers) + ' soldati' : '', inAir ? 'aerei' : '', inSea ? 'flotta' : ''].filter(Boolean).join(', ')}</span>`);
+  if (tags.length) html += `<div class="vs">${tags.join('')}</div>`;
   if (o === me) {
+    const coastal = pr.coastal;
     html += `<div class="actions">
-      <button class="act" id="aRec" ${gold < RECRUIT_COST ? 'disabled' : ''}><svg><use href="#i-plus"/></svg>Arruola 1k<small>${RECRUIT_COST} oro</small></button>
+      <button class="act" id="rInf" ${gold < RECRUIT_COST ? 'disabled' : ''}><svg><use href="#i-plus"/></svg>Fanteria 1k<small>${RECRUIT_COST} oro</small></button>
+      <button class="act" id="rFgt" ${gold < FGT_COST ? 'disabled' : ''}><span class="gi">${AIR_ICON}</span>Caccia<small>${FGT_COST} oro</small></button>
+      <button class="act" id="rBmb" ${gold < BMB_COST ? 'disabled' : ''}><span class="gi">${AIR_ICON}</span>Bombardiere<small>${BMB_COST} oro</small></button>
+      <button class="act" id="rShip" ${!coastal || gold < SHIP_COST ? 'disabled' : ''}><span class="gi">${SEA_ICON}</span>Nave<small>${coastal ? SHIP_COST + ' oro' : 'serve la costa'}</small></button>
       <button class="act" id="aEco" ${P.eco >= 5 || gold < ecoCost(i) ? 'disabled' : ''}><svg><use href="#i-chart"/></svg>Economia<small>${P.eco >= 5 ? 'max' : ecoCost(i) + ' oro'}</small></button>
       <button class="act" id="aFort" ${P.fort >= 3 || gold < fortCost(i) ? 'disabled' : ''}><svg><use href="#i-fort"/></svg>Fortifica<small>${P.fort >= 3 ? 'max' : fortCost(i) + ' oro'}</small></button>
     </div>`;
-    if (P.army >= 10) {
-      const step = P.army >= 1000 ? 100 : 10;
-      html += `<div class="move"><label for="moveAmt">Truppe da inviare <b id="moveVal">${fmt(P.army)}</b></label>
-        <input type="range" id="moveAmt" min="${step}" max="${P.army}" step="${step}" value="${moveKeep && moveKeep <= P.army ? moveKeep : P.army}">
-        <button class="act send wide" id="aSend">${moveMode ? 'Tocca la destinazione sulla mappa · annulla' : 'Invia truppe'}</button>
-        <p class="hint">${moveMode ? 'Una tua provincia per spostarle, una provincia nemica in guerra per attaccare. Il percorso passa per il tuo territorio e quello degli alleati.' : 'Scegli quante truppe, premi Invia e tocca la destinazione, anche lontana.'}</p></div>`;
-    } else html += `<p class="hint">Nessuna truppa qui. Arruola o sposta soldati da un'altra provincia.</p>`;
+    const modes = [];
+    if (P.army >= 10) modes.push(['land', 'Truppe']);
+    if (P.fgt + P.bmb > 0) modes.push(['air', 'Missione aerea']);
+    if (P.ships > 0) modes.push(['sea', 'Flotta']);
+    if (modes.length) {
+      html += `<div class="move">`;
+      if (P.army >= 10) {
+        const step = P.army >= 1000 ? 100 : 10;
+        html += `<label for="moveAmt">Truppe da inviare <b id="moveVal">${fmt(P.army)}</b></label>
+        <input type="range" id="moveAmt" min="${step}" max="${P.army}" step="${step}" value="${moveKeep && moveKeep <= P.army ? moveKeep : P.army}">`;
+      }
+      html += `<div class="sendrow">${modes.map(([k, l]) => `<button class="act send ${moveMode === k ? 'on' : ''}" data-mode="${k}">${moveMode === k ? 'Annulla' : l}</button>`).join('')}</div>`;
+      const hints = {
+        land: 'Tocca una tua provincia per spostare le truppe o una nemica per attaccare, anche lontana. Marce lunghe abbassano il morale.',
+        air: `Tocca una provincia nemica entro ${AIR_RANGE} km di mappa per bombardarla (i caccia scortano), o una tua per trasferire gli aerei.`,
+        sea: 'Tocca un tuo porto per spostare la flotta, o la costa di un nemico per attaccarne la flotta e bloccarne il porto.',
+      };
+      html += `<p class="hint">${moveMode ? hints[moveMode] : 'Scegli cosa inviare, poi tocca la destinazione sulla mappa.'}</p></div>`;
+    }
   } else {
-    const war = atWar(me, o), ally = allied(me, o), tr = truceLeft(me, o);
+    const war = atWar(me, o), ally = allied(me, o), tr = truceLeft(me, o), r = relOf(o);
     const tag = war ? '<span class="tag war">In guerra</span>' : ally ? '<span class="tag ally">Alleato</span>' : tr ? `<span class="tag truce">Tregua · ${Math.ceil(tr / 30)} mesi</span>` : '<span class="tag peace">In pace</span>';
     const theirAllies = G.n[o].allies.filter(x => G.n[x].alive);
-    html += `<div class="vs">${tag}<span class="sub">${provsOf(o).length} province · esercito ${fmt(armyOf(o))} · il tuo ${fmt(armyOf(me))}</span></div>`;
+    html += `<div class="vs">${tag}<span class="tag rel" style="--r:${r}">Rapporti ${relWord(r)} ${r > 0 ? '+' : ''}${r}</span><span class="sub">${provsOf(o).length} province · forza ${fmt(armyOf(o))} · la tua ${fmt(armyOf(me))}</span></div>`;
     if (theirAllies.length) html += `<div class="sub">Alleati: ${theirAllies.slice(0, 5).map(x => esc(fullName(x))).join(', ')}${theirAllies.length > 5 ? '…' : ''}</div>`;
     const cool = k => (G.asked[k + o] || 0) > G.day;
+    const myFleet = G.fleets.find(f => f.prov === i && f.owner === me);
     if (war) {
       const nk = G.n[me].nukes;
       html += `<div class="actions"><button class="act peace wide" id="aPeace" ${cool('pp') ? 'disabled' : ''}>${cool('pp') ? 'Riprova tra qualche settimana' : 'Proponi la pace'}</button>
+        ${myFleet ? `<button class="act wide" id="aRecall">Richiama la flotta (${myFleet.ships} navi)</button>` : ''}
         ${nk > 0 ? `<button class="act nuke wide" id="aNuke"><svg><use href="#i-nuke"/></svg>${pendingConfirm === 'nuke' + i ? 'Conferma lancio su ' + esc(pr.name) : 'Lancia testata nucleare · ' + nk + ' disponibili'}</button>` : ''}</div>`;
     } else if (ally) {
-      html += `<div class="actions"><button class="act wide" id="aBreak">${pendingConfirm === 'break' + o ? 'Conferma: rompi l\'alleanza' : 'Rompi l\'alleanza'}</button></div>`;
+      html += `<div class="actions"><button class="act" id="aAid" ${cool('ai') || gold < AID_COST ? 'disabled' : ''}>Invia aiuti<small>${AID_COST} oro</small></button>
+        <button class="act wide" id="aBreak" style="grid-column: span 2">${pendingConfirm === 'break' + o ? 'Conferma: rompi l\'alleanza' : 'Rompi l\'alleanza'}</button></div>`;
     } else {
       const warn = theirAllies.filter(x => x !== me).length;
       html += `<div class="actions">
-        <button class="act peace wide" id="aAlly" ${cool('pa') ? 'disabled' : ''}>${cool('pa') ? 'Riprova tra qualche settimana' : 'Proponi un\'alleanza'}</button>
+        <button class="act" id="aAid" ${cool('ai') || gold < AID_COST ? 'disabled' : ''}>Invia aiuti<small>${AID_COST} oro · +10</small></button>
+        <button class="act peace" id="aAlly" ${cool('pa') ? 'disabled' : ''} style="grid-column: span 2">${cool('pa') ? 'Riprova tra qualche settimana' : 'Proponi un\'alleanza'}</button>
         ${tr ? '' : `<button class="act war wide" id="aWar">${pendingConfirm === o ? 'Conferma: guerra a ' + esc(fullName(o)) + (warn ? ` (+${warn} alleati)` : '') : 'Dichiara guerra'}</button>`}</div>`;
     }
   }
@@ -1711,11 +2176,14 @@ function renderPanel() {
   panel.hidden = false;
   $('closePanel').onclick = () => { selected = -1; moveMode = false; pendingConfirm = null; renderPanel(); staticDirty = true; requestRender(); };
   if (o === me) {
-    $('aRec').onclick = () => recruit(i);
+    $('rInf').onclick = () => recruit(i, 'inf');
+    $('rFgt').onclick = () => recruit(i, 'fgt');
+    $('rBmb').onclick = () => recruit(i, 'bmb');
+    $('rShip').onclick = () => recruit(i, 'ship');
     $('aEco').onclick = () => upgradeEco(i);
     $('aFort').onclick = () => fortify(i);
+    for (const b of panel.querySelectorAll('[data-mode]')) b.onclick = () => { moveMode = moveMode === b.dataset.mode ? false : b.dataset.mode; renderPanel(); };
     const r = $('moveAmt');
-    if ($('aSend')) $('aSend').onclick = () => { moveMode = !moveMode; renderPanel(); };
     if (r) {
       $('moveVal').textContent = fmt(+r.value);
       r.oninput = () => { moveKeep = +r.value; $('moveVal').textContent = fmt(+r.value); };
@@ -1728,8 +2196,116 @@ function renderPanel() {
     if ($('aNuke')) $('aNuke').onclick = confirmThen('nuke' + i, () => playerNuke(i));
     if ($('aWar')) $('aWar').onclick = confirmThen(o, () => playerDeclare(o));
     if ($('aAlly')) $('aAlly').onclick = () => playerAlly(o);
+    if ($('aAid')) $('aAid').onclick = () => playerAid(o);
     if ($('aBreak')) $('aBreak').onclick = confirmThen('break' + o, () => playerBreak(o));
+    if ($('aRecall')) $('aRecall').onclick = () => { const f = G.fleets.find(f => f.prov === i && f.owner === me); if (f) recallFleet(f); afterAction(); };
   }
+}
+
+// ---------- state dashboard ----------
+let dashOpen = false, dashTab = 'over';
+const goTo = i => { const c = W.provs[i].c; closeDash(); selected = i; centerOn(c[0], c[1], Math.max(cam.s, 1), 0.35); renderPanel(); staticDirty = true; requestRender(); };
+function openDash(tab) { dashOpen = true; if (tab) dashTab = tab; $('dash').hidden = false; renderDash(); }
+function closeDash() { dashOpen = false; $('dash').hidden = true; }
+function spark(vals, color, h = 56) {
+  if (vals.length < 2) return '<p class="sub">Il grafico si riempie con il passare dei mesi.</p>';
+  const w = 300, lo = Math.min(...vals), hi = Math.max(...vals), span = hi - lo || 1;
+  const pts = vals.map((v, k) => [k / (vals.length - 1) * w, h - 4 - (v - lo) / span * (h - 8)]);
+  const d = pts.map((p, k) => (k ? 'L' : 'M') + p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join(' ');
+  return `<svg viewBox="0 0 ${w} ${h}" class="spark" preserveAspectRatio="none"><path d="${d} L${w} ${h} L0 ${h} Z" fill="${color}" opacity=".14"/><path d="${d}" fill="none" stroke="${color}" stroke-width="2" vector-effect="non-scaling-stroke"/><circle cx="${pts[pts.length - 1][0]}" cy="${pts[pts.length - 1][1]}" r="3" fill="${color}"/></svg>`;
+}
+const relBar = r => `<span class="relbar"><i style="left:50%;width:${Math.abs(r) / 2}%;${r < 0 ? 'transform:translateX(-100%);' : ''}background:${r >= 20 ? 'var(--peace)' : r <= -20 ? 'var(--war)' : 'var(--muted)'}"></i></span>`;
+function renderDash() {
+  const me = G.player, x = G.n[me], f = forcesOf(me), inc = income(me), mine = provsOf(me);
+  const tabs = [['over', 'Panoramica'], ['wars', 'Guerre'], ['dip', 'Diplomazia'], ['mil', 'Forze'], ['eco', 'Economia'], ['rank', 'Classifica']];
+  let body = '';
+  if (dashTab === 'over') {
+    const pop = mine.reduce((s, i) => s + W.provs[i].pop, 0);
+    body = `<div class="kpis">
+      <div class="kpi"><span>Oro</span><b>${Math.floor(x.gold)}</b><small class="${inc.net < 0 ? 'neg' : 'pos'}">${inc.net >= 0 ? '+' : ''}${inc.net} al mese</small></div>
+      <div class="kpi"><span>Province</span><b>${mine.length}</b><small>${popStr(pop)} abitanti</small></div>
+      <div class="kpi"><span>Forza militare</span><b>${fmt(power(f))}</b><small>${fmt(f.army)} soldati</small></div>
+      <div class="kpi"><span>Aviazione</span><b>${f.fgt + f.bmb}</b><small>${f.fgt} caccia · ${f.bmb} bomb.</small></div>
+      <div class="kpi"><span>Marina</span><b>${f.ships}</b><small>navi</small></div>
+      <button class="kpi nukek" id="dNuke"><span>Testate nucleari</span><b>${x.nukes}</b><small>${x.prog > 0 ? `pronto tra ${Math.ceil((x.prog - G.day) / 30)} mesi` : x.prog === 0 ? 'apri l\'arsenale' : 'avvia un programma'}</small></button>
+    </div>
+    <div class="vs"><span class="tag war">${x.wars.length} guerre</span><span class="tag ally">${x.allies.length} alleati</span><span class="tag truce">${Object.keys(G.truce).filter(k => k.split('-').map(Number).includes(me)).length} tregue</span></div>
+    <h3>Oro nel tempo</h3>${spark(G.hist.map(h => h.gold), '#f5c451')}
+    <h3>Province nel tempo</h3>${spark(G.hist.map(h => h.prov), '#4da3ff')}`;
+  } else if (dashTab === 'wars') {
+    const wars = x.wars.filter(w => G.n[w].alive);
+    body = wars.length ? wars.map(w => {
+      const s = wstat(me, w), ef = forcesOf(w), days = G.day - s.start;
+      const front = provsOf(w).find(i => W.provs[i].nb.some(j => G.p[j].owner === me));
+      return `<div class="card">
+        <div class="ch"><span class="chip" style="background:${nat(w).color}"></span><b>${esc(fullName(w))}</b><span class="sub">da ${Math.floor(days / 30)} mesi e ${days % 30} giorni</span></div>
+        <div class="vsgrid"><span></span><span>Tu</span><span>Nemico</span>
+          <span>Province prese</span><b>${s.cap[me] || 0}</b><b>${s.cap[w] || 0}</b>
+          <span>Perdite</span><b>${fmt(s.kia[me] || 0)}</b><b>${fmt(s.kia[w] || 0)}</b>
+          <span>Soldati</span><b>${fmt(f.army)}</b><b>${fmt(ef.army)}</b>
+          <span>Aerei</span><b>${f.fgt + f.bmb}</b><b>${ef.fgt + ef.bmb}</b>
+          <span>Navi</span><b>${f.ships}</b><b>${ef.ships}</b></div>
+        ${G.n[w].allies.length ? `<div class="sub">Suoi alleati: ${G.n[w].allies.map(a => esc(fullName(a))).join(', ')}</div>` : ''}
+        <div class="row">${front !== undefined ? `<button class="btn" data-go="${front}">Vai al fronte</button>` : ''}<button class="btn" data-peace="${w}" ${(G.asked['pp' + w] || 0) > G.day ? 'disabled' : ''}>Proponi la pace</button></div>
+      </div>`;
+    }).join('') : '<p class="sub">Nessuna guerra in corso. Per ora.</p>';
+  } else if (dashTab === 'dip') {
+    const allies = x.allies.filter(a => G.n[a].alive);
+    const truces = Object.entries(G.truce).map(([k, v]) => [k.split('-').map(Number), v]).filter(([ab]) => ab.includes(me)).map(([ab, v]) => [ab[0] === me ? ab[1] : ab[0], v - G.day]);
+    const others = new Set([...neighborNations(me), ...x.wars]);
+    const powers = G.n.map((_, n) => n).filter(n => G.n[n].alive && n !== me).sort((a, b) => armyOf(b) - armyOf(a)).slice(0, 8);
+    for (const p of powers) others.add(p);
+    for (const a of allies) others.delete(a);
+    const row = n => `<button class="drow" data-goc="${n}"><span class="chip" style="background:${nat(n).color}"></span><b>${esc(fullName(n))}</b>${relBar(relOf(n))}<span class="rv">${relOf(n) > 0 ? '+' : ''}${relOf(n)}</span><span class="tag ${atWar(me, n) ? 'war' : allied(me, n) ? 'ally' : truceLeft(me, n) ? 'truce' : 'peace'}">${atWar(me, n) ? 'Guerra' : allied(me, n) ? 'Alleato' : truceLeft(me, n) ? 'Tregua' : relWord(relOf(n))}</span></button>`;
+    body = `<h3>Alleati (${allies.length})</h3>${allies.length ? allies.map(row).join('') : '<p class="sub">Nessun alleato. Proponi un\'alleanza toccando un paese sulla mappa.</p>'}
+      <h3>Tregue</h3>${truces.length ? truces.map(([n, d]) => `<div class="drow"><span class="chip" style="background:${nat(n).color}"></span><b>${esc(fullName(n))}</b><span class="sub">ancora ${Math.ceil(d / 30)} mesi</span></div>`).join('') : '<p class="sub">Nessuna tregua in corso.</p>'}
+      <h3>Rapporti con vicini e potenze</h3>${[...others].sort((a, b) => relOf(a) - relOf(b)).map(row).join('')}
+      <p class="sub">I rapporti salgono con alleanze, aiuti e paci; scendono con dichiarazioni di guerra, conquiste e armi nucleari.</p>`;
+  } else if (dashTab === 'mil') {
+    const mv = G.moves.filter(m => m.owner === me);
+    const fl = G.fleets.filter(f => f.owner === me);
+    const top = mine.slice().sort((a, b) => power(G.p[b]) - power(G.p[a])).slice(0, 8);
+    const what = m => m.type === 'air' ? `${AIR_ICON} ${m.fgt + m.bmb} aerei` : m.type === 'sea' ? `${SEA_ICON} ${m.ships} navi` : `${fmt(m.amount)} soldati`;
+    body = `<div class="kpis">
+      <div class="kpi"><span>Soldati</span><b>${fmt(f.army)}</b></div><div class="kpi"><span>Caccia</span><b>${f.fgt}</b></div>
+      <div class="kpi"><span>Bombardieri</span><b>${f.bmb}</b></div><div class="kpi"><span>Navi</span><b>${f.ships}</b></div></div>
+      <h3>In movimento (${mv.length})</h3>${mv.length ? mv.map(m => `<button class="drow" data-go="${m.path[m.path.length - 1]}"><b>${what(m)}</b><span class="sub">${esc(pname(m.path[0]))} → ${esc(pname(m.path[m.path.length - 1]))}</span><span class="rv">${daysWord(Math.max(1, Math.ceil(m.arr - G.time)))}</span></button>`).join('') : '<p class="sub">Nessuna forza in movimento.</p>'}
+      <h3>Flotte schierate (${fl.length})</h3>${fl.length ? fl.map((f, k) => `<div class="drow"><b>${SEA_ICON} ${f.ships} navi</b><span class="sub">blocco a ${esc(pname(f.prov))}</span><button class="btn sm" data-recall="${k}">Richiama</button></div>`).join('') : '<p class="sub">Nessuna flotta davanti a coste nemiche.</p>'}
+      <h3>Guarnigioni principali</h3>${top.map(i => `<button class="drow" data-go="${i}"><b>${esc(pname(i))}</b><span class="sub">${fmt(G.p[i].army)} soldati${G.p[i].fgt + G.p[i].bmb ? ` · ${AIR_ICON} ${G.p[i].fgt + G.p[i].bmb}` : ''}${G.p[i].ships ? ` · ${SEA_ICON} ${G.p[i].ships}` : ''}</span></button>`).join('')}`;
+  } else if (dashTab === 'eco') {
+    const rich = mine.slice().sort((a, b) => provIncome(b) - provIncome(a)).slice(0, 8);
+    const issues = mine.filter(i => radLeft(i) || blockaded(i) || !G.p[i].sup);
+    body = `<div class="kpis">
+      <div class="kpi"><span>Entrate</span><b class="pos">+${inc.inc}</b><small>al mese dalle province</small></div>
+      <div class="kpi"><span>Esercito</span><b class="neg">−${inc.army}</b><small>soldo dei soldati</small></div>
+      <div class="kpi"><span>Aviazione</span><b class="neg">−${inc.air}</b><small>manutenzione</small></div>
+      <div class="kpi"><span>Marina</span><b class="neg">−${inc.navy}</b><small>manutenzione</small></div>
+    </div>
+    <h3>Rendita mensile nel tempo</h3>${spark(G.hist.map(h => h.inc), '#3ddc97')}
+    <h3>Province più ricche</h3>${rich.map(i => `<button class="drow" data-go="${i}"><b>${esc(pname(i))}</b><span class="sub">economia ${G.p[i].eco}/5</span><span class="rv">+${provIncome(i)}</span></button>`).join('')}
+    <h3>Problemi</h3>${issues.length ? issues.map(i => `<button class="drow" data-go="${i}"><b>${esc(pname(i))}</b><span class="sub">${[radLeft(i) ? 'contaminata' : '', blockaded(i) ? 'porto bloccato' : '', !G.p[i].sup ? 'senza rifornimenti' : ''].filter(Boolean).join(', ')}</span></button>`).join('') : '<p class="sub">Nessuna provincia in difficoltà.</p>'}`;
+  } else {
+    const score = n => { const ff = forcesOf(n); return provsOf(n).length * 10 + power(ff) / 1000 + income(n).inc; };
+    const all = G.n.map((_, n) => n).filter(n => G.n[n].alive).sort((a, b) => score(b) - score(a));
+    const myRank = all.indexOf(me) + 1;
+    body = `<p class="sub">Punteggio: province, forza militare ed economia. Sei <b>${myRank}°</b> su ${all.length}.</p>
+      ${all.slice(0, 12).map((n, k) => `<button class="drow ${n === me ? 'me' : ''}" data-goc="${n}"><span class="rk">${k + 1}</span><span class="chip" style="background:${nat(n).color}"></span><b>${esc(fullName(n))}</b><span class="sub">${provsOf(n).length} prov. · ${fmt(armyOf(n))}</span><span class="rv">${Math.round(score(n))}</span></button>`).join('')}
+      ${myRank > 12 ? `<button class="drow me" data-goc="${me}"><span class="rk">${myRank}</span><b>${esc(fullName(me))}</b><span class="rv">${Math.round(score(me))}</span></button>` : ''}`;
+  }
+  const el = $('dash');
+  const scroll = el.querySelector('.dbody')?.scrollTop || 0;
+  el.innerHTML = `<div class="dhead"><div><div class="eyebrow">Stato · ${dateStr(G.day)}</div><h1>${esc(fullName(me))}</h1></div>
+      <button class="icon-btn" id="dClose" aria-label="Chiudi" style="background:rgba(255,255,255,.06)"><svg><use href="#i-close"/></svg></button></div>
+    <div class="dtabs">${tabs.map(([k, l]) => `<button class="${k === dashTab ? 'on' : ''}" data-tab="${k}">${l}</button>`).join('')}</div>
+    <div class="dbody">${body}</div>`;
+  el.querySelector('.dbody').scrollTop = scroll;
+  $('dClose').onclick = closeDash;
+  for (const b of el.querySelectorAll('[data-tab]')) b.onclick = () => { dashTab = b.dataset.tab; renderDash(); el.querySelector('.dbody').scrollTop = 0; };
+  for (const b of el.querySelectorAll('[data-go]')) b.onclick = () => goTo(+b.dataset.go);
+  for (const b of el.querySelectorAll('[data-goc]')) b.onclick = () => goTo(G.n[+b.dataset.goc].capital);
+  for (const b of el.querySelectorAll('[data-peace]')) b.onclick = () => playerPeace(+b.dataset.peace);
+  if ($('dNuke')) $('dNuke').onclick = () => { closeDash(); showArsenal(); };
+  for (const b of el.querySelectorAll('[data-recall]')) b.onclick = () => { const f = G.fleets.filter(f => f.owner === me)[+b.dataset.recall]; if (f) recallFleet(f); afterAction(); };
 }
 
 // modals pause the clock; requests arriving meanwhile wait in line
@@ -1797,21 +2373,27 @@ function showArsenal() {
     </div>`, () => {
     if ($('nProg')) $('nProg').onclick = () => { hideModal(); startProgram(); };
     if ($('nBuild')) $('nBuild').onclick = () => { hideModal(); buildNuke(); };
+    if ($('nBuild')) $('nBuild').onclick = () => { hideModal(); buildNuke(); };
     $('nClose').onclick = hideModal;
   });
 }
 function showMenu() {
   showModal(`<h1 style="font-size:26px">Come si gioca</h1>
     <ul>
-      <li>Il tempo scorre da solo. In basso a destra metti in pausa o acceleri (1×, 2×, 4×). Ogni giorno incassi la rendita meno il soldo delle truppe.</li>
-      <li>Tocca una tua provincia per arruolare, migliorare l'economia o fortificarla.</li>
-      <li>Con una tua provincia selezionata, tocca qualsiasi altra provincia: le truppe partono e la raggiungono in qualche giorno, passando per il tuo territorio e quello degli alleati.</li>
+      <li>Il tempo scorre da solo. In basso a destra metti in pausa o acceleri (1×, 2×, 4×). Ogni giorno incassi la rendita meno il mantenimento delle forze.</li>
+      <li>Tocca una tua provincia per arruolare fanteria, caccia, bombardieri e navi (solo sulla costa), migliorare l'economia o fortificarla.</li>
+      <li>Truppe di terra: le uniche che conquistano. Marciano lente attraverso il tuo territorio e quello degli alleati; marce lunghe abbassano il morale.</li>
+      <li>Aviazione: bombarda le province nemiche entro il raggio, indebolendone truppe e difese. I caccia scortano e difendono.</li>
+      <li>Marina: attacca le flotte nemiche, blocca i porti (rendita dimezzata), sostiene gli sbarchi e impedisce al nemico di attraversare il mare.</li>
+      <li>Province staccate dalla capitale restano senza rifornimenti e perdono truppe.</li>
       <li>Per attaccare un paese devi prima dichiarargli guerra. Le province che conquisti lampeggiano in blu, quelle che perdi in rosso.</li>
       <li>Alleanze: se qualcuno attacca un tuo alleato ti viene chiesto di intervenire, e i tuoi alleati ti difendono.</li>
       <li>Il simbolo radioattivo apre l'arsenale nucleare. Il giornale raccoglie tutte le notizie.</li>
     </ul>
+    <label class="toggle"><input type="checkbox" id="mAuto" ${G.autoPause ? 'checked' : ''}> Pausa automatica sugli allarmi gravi (guerra dichiarata, capitale attaccata, armi nucleari)</label>
     <div class="row"><button class="btn primary" id="mClose">Riprendi</button><button class="btn" id="mNew">Nuova partita</button></div>`, () => {
     $('mClose').onclick = hideModal;
+    $('mAuto').onchange = e => { G.autoPause = e.target.checked; save(); };
     $('mNew').onclick = () => {
       if ($('mNew').dataset.c) { clearSaved(); modalQueue.length = 0; hideModal(); toIntro(); }
       else { $('mNew').dataset.c = '1'; $('mNew').textContent = 'Conferma: perdi la partita attuale'; }
@@ -1828,7 +2410,7 @@ function toIntro() {
   phase = 'pick'; pickNation = -1; selected = -1;
   G = initialState(); ownVer++; bordersDirty = true; staticDirty = true;
   feed.length = 0; unread = 0;
-  $('top').hidden = true; $('clock').hidden = true; $('panel').hidden = true; $('banner').hidden = true;
+  $('top').hidden = true; $('clock').hidden = true; $('panel').hidden = true; $('banner').hidden = true; closeDash();
   $('intro').hidden = false;
   $('continueBtn').hidden = !loadSaved();
   vw = window.innerWidth; vh = window.innerHeight;
@@ -1862,8 +2444,8 @@ for (const b of document.querySelectorAll('#clock button')) b.onclick = () => se
 window.addEventListener('keydown', e => { if (e.code === 'Space' && phase === 'play' && !modalOpen) { e.preventDefault(); setSpeed(speedIdx ? 0 : 1); } });
 document.addEventListener('visibilitychange', () => { if (document.hidden) save(); });
 $('menuBtn').onclick = showMenu;
-$('nukePill').onclick = showArsenal;
 $('newsBtn').onclick = showNews;
+$('dashBtn').onclick = () => openDash();
 $('layerBtn').onclick = () => {
   mapMode = mapMode === 'sat' ? 'pol' : 'sat';
   try { localStorage.setItem('tdc-mapmode', mapMode); } catch (e) {}
