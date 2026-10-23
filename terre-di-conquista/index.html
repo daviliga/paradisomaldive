@@ -4,6 +4,10 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#070b14">
+<meta name="apple-mobile-web-app-title" content="Conquista">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<link rel="icon" type="image/png" href="icons/icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif:ital,wght@1,600;1,700&family=Sora:wght@500;600;700&family=Manrope:wght@500;600;700;800&display=swap">
@@ -27,6 +31,8 @@
   color-scheme: dark;
 }
 [hidden] { display: none !important; }
+*, *::before, *::after { box-sizing: border-box; }
+body { margin: 0; }
 html, body { height: 100%; }
 body {
   background: var(--bg);
@@ -309,6 +315,17 @@ input.wide { width: 100%; accent-color: var(--accent); }
 .drow.tech.have .rv { color: var(--peace); }
 .rescard .row { gap: 6px; } .rescard .btn.sm { margin-left: 0; flex: 1; }
 .spy { display: grid; gap: 6px; }
+#intro .seg button { padding: 8px 4px; font-size: 13px; }
+.goal { display: grid; gap: 6px; padding: 10px 12px; border-radius: 12px; background: rgba(255,255,255,.04); }
+.goal .ch { gap: 8px; flex-wrap: nowrap; } .goal .ch b { font-size: 14px; } .goal .sub { flex: 1; min-width: 0; font-size: 12px; }
+.goal.done .rv { color: var(--peace); }
+.slots { display: grid; gap: 6px; } .slot { flex-wrap: wrap; cursor: default; } .slot .sub { flex-basis: 100%; order: 3; white-space: normal; }
+.slot .btn.sm { margin-left: 0; } .slot b { margin-right: auto; }
+#tutorial { position: fixed; z-index: 8; left: max(12px, env(safe-area-inset-left, 0px)); right: max(12px, env(safe-area-inset-right, 0px)); top: calc(env(safe-area-inset-top, 0px) + 66px); margin: 0 auto; max-width: 440px; padding: 16px 16px 14px; border-radius: 20px; display: grid; gap: 8px; background: var(--glass-strong); border: 1px solid rgba(91,140,255,.5); }
+#tutorial b { font-family: var(--display); font-size: 19px; }
+#tutorial p { margin: 0; color: var(--muted); line-height: 1.45; font-weight: 600; }
+.tut-hi { outline: 3px solid #f5c451 !important; outline-offset: 3px; animation: tutp 1.2s ease-in-out infinite; }
+@keyframes tutp { 50% { outline-color: rgba(245,196,81,.25); } }
 .spy .drow { flex-wrap: wrap; } .spy .drow .sub { white-space: normal; flex-basis: 100%; order: 3; }
 #layerBtn { width: 44px !important; height: 44px !important; }
 #nukeBtn { position: fixed; z-index: 6; height: 44px; padding: 0 11px 0 9px; border-radius: 999px; display: flex; align-items: center; gap: 4px; bottom: calc(env(safe-area-inset-bottom, 0px) + 16px); left: calc(max(14px, env(safe-area-inset-left, 0px)) + 50px); color: #e9f9b8; font: 800 15px var(--body); cursor: pointer; border-color: rgba(212,242,90,.45); }
@@ -371,17 +388,21 @@ input.wide { width: 100%; accent-color: var(--accent); }
 
 
 <section id="intro" class="glass">
-  <div class="eyebrow">Strategia in tempo reale · Mondo 2026</div>
+  <div class="eyebrow" id="introEye">Strategia in tempo reale · Mondo 2026</div>
   <h1>Terre di Conquista</h1>
-  <p>Il mondo di oggi in oltre mille province. Scegli un paese, fai crescere l'economia, arruola eserciti e conquista il pianeta.</p>
+  <div class="seg" id="scenSeg"></div>
+  <p id="scenDesc">Il mondo di oggi in oltre mille province. Scegli un paese, fai crescere l'economia, arruola eserciti e conquista il pianeta.</p>
   <div class="pick" id="pickInfo"><span class="sub">Tocca un paese sulla mappa per sceglierlo. Pizzica per lo zoom.</span></div>
   <div class="row">
     <button class="btn primary" id="startBtn" disabled>Gioca</button>
     <button class="btn" id="continueBtn" hidden>Continua</button>
+    <button class="btn" id="loadBtn">Carica</button>
   </div>
 </section>
 
 <section id="dash" class="glass" hidden></section>
+
+<section id="tutorial" class="glass" hidden></section>
 
 <div id="modal" hidden><div class="box" id="modalBox"></div></div>
 
@@ -728,7 +749,7 @@ function initialState() {
       tax: 1, draft: false, rb: 10, rp: 0, res: '', stab: 70, mood: 0, sanc: 0, intel: {}, stock: { oil: 40, steel: 40, food: 40 }, short: {} };
   });
   const rel = W.nations.map(() => Math.round(Math.random() * 30 - 10));
-  return { v: 6, time: 0, day: 0, player: -1, truce: {}, asked: {}, retal: [], moves: [], units: [], battles: [], nextMove: 1, ws: {}, hist: [], rel, autoPause: true, market: { ...BASE_PRICE }, p, n };
+  return { v: 6, time: 0, day: 0, player: -1, truce: {}, asked: {}, retal: [], moves: [], units: [], battles: [], nextMove: 1, ws: {}, hist: [], rel, autoPause: true, market: { ...BASE_PRICE }, scen: 'peace', y0: START_YEAR, goals: null, won: [], capLost: false, p, n };
 }
 function serialize() {
   return { ...G, p: G.p.map(x => [x.owner, x.army, x.fgt, x.bmb, x.ships, x.eco, x.fort, x.rad, x.hit, x.sup, x.bar, x.apt, x.port, x.mis, x.tnk, x.sub, x.car, x.aa, x.abm, Math.round(x.xp * 100) / 100, x.rev || 0]) };
@@ -736,7 +757,7 @@ function serialize() {
 function restore(s) {
   if (!s || s.v !== 6) return false;
   G = { ...s, retal: s.retal || [], asked: s.asked || {}, battles: s.battles || [], p: s.p.map(a => ({ owner: a[0], army: a[1], fgt: a[2], bmb: a[3], ships: a[4], eco: a[5], fort: a[6], rad: a[7], hit: a[8], sup: a[9], bar: a[10], apt: a[11], port: a[12], mis: a[13] || 0,
-    tnk: a[14] || 0, sub: a[15] || 0, car: a[16] || 0, aa: a[17] || 0, abm: a[18] || 0, xp: a[19] || 0, rev: a[20] || 0 })), units: s.units || [], market: s.market || { ...BASE_PRICE } };
+    tnk: a[14] || 0, sub: a[15] || 0, car: a[16] || 0, aa: a[17] || 0, abm: a[18] || 0, xp: a[19] || 0, rev: a[20] || 0 })), units: s.units || [], market: s.market || { ...BASE_PRICE }, won: s.won || [], scen: s.scen || 'peace', y0: s.y0 || START_YEAR };
   for (const x of G.n) {
     x.tech = x.tech || []; x.intel = x.intel || {}; x.stock = x.stock || { oil: 40, steel: 40, food: 40 }; x.short = x.short || {};
     for (const [k, v] of Object.entries({ tax: 1, draft: false, rb: 10, rp: 0, res: '', stab: 70, mood: 0, sanc: 0 })) if (x[k] === undefined) x[k] = v;
@@ -747,6 +768,141 @@ function restore(s) {
 function save() { try { if (G && phase === 'play') localStorage.setItem(SAVE_KEY, JSON.stringify(serialize())); } catch (e) {} }
 function loadSaved() { try { const s = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null'); return s && s.v === 6 ? s : null; } catch (e) { return null; } }
 function clearSaved() { try { localStorage.removeItem(SAVE_KEY); } catch (e) {} }
+
+// ---------- scenarios ----------
+const natA2 = a => W.nations.findIndex(x => WD.countries[x.id].a === a && x.size > 0);
+const NATO = ['US', 'CA', 'GB', 'FR', 'DE', 'IT', 'ES', 'PT', 'NL', 'BE', 'NO', 'DK', 'PL', 'TR', 'GR', 'RO', 'CZ', 'HU', 'SK', 'BG', 'HR', 'LT', 'LV', 'EE', 'FI', 'SE'];
+const SCENARIOS = {
+  peace: { name: 'Mondo 2026', year: 2026, desc: 'Il mondo di oggi, in pace. Scegli tu se e quando fare la prima mossa.' },
+  crisis: { name: 'Crisi 2026', year: 2026, desc: 'Guerre già in corso: Russia contro Ucraina, Israele contro Iran. La NATO è unita, Russia e Bielorussia anche, Cina e Corea del Nord pure.' },
+  cold: { name: 'Guerra Fredda', year: 1962, desc: 'Due blocchi armati di testate nucleari. Nota: i confini sono quelli di oggi, non quelli del 1962 (non abbiamo i dati storici).' },
+};
+function allyAll(list) {
+  const ids = list.map(natA2).filter(n => n >= 0);
+  for (let a = 0; a < ids.length; a++) for (let b = a + 1; b < ids.length; b++) if (!allied(ids[a], ids[b])) { G.n[ids[a]].allies.push(ids[b]); G.n[ids[b]].allies.push(ids[a]); }
+}
+function warOf(a, b) { const x = natA2(a), y = natA2(b); if (x >= 0 && y >= 0) declareWar(x, y); }
+function applyScenario(k) {
+  G.scen = k; G.y0 = SCENARIOS[k].year;
+  if (k === 'crisis') {
+    warOf('RU', 'UA'); warOf('IL', 'IR');
+    allyAll(NATO); allyAll(['RU', 'BY']); allyAll(['CN', 'KP']); allyAll(['IR', 'SY']);
+    // countries already at war start mobilised; Ukraine gets Western aid
+    for (const [a, k, g] of [['RU', 1.5, 150], ['UA', 4, 400], ['IL', 2, 150], ['IR', 2, 150]]) {
+      const n = natA2(a); if (n < 0) continue;
+      G.n[n].gold += g;
+      for (const i of provsOf(n)) { G.p[i].army = Math.round(G.p[i].army * k / 10) * 10; G.p[i].fort = Math.max(G.p[i].fort, a === 'UA' ? 1 : 0); }
+    }
+  } else if (k === 'cold') {
+    allyAll(['US', 'CA', 'GB', 'FR', 'DE', 'IT', 'NL', 'BE', 'NO', 'DK', 'PT', 'TR', 'GR', 'ES', 'JP', 'KR', 'AU']);
+    allyAll(['RU', 'UA', 'BY', 'KZ', 'PL', 'CZ', 'SK', 'HU', 'RO', 'BG', 'CU', 'MN', 'LT', 'LV', 'EE', 'GE', 'AM', 'AZ']);
+    allyAll(['CN', 'KP', 'VN']);
+    // a much bigger arsenal on both sides, and no modern technology
+    for (let n = 0; n < G.n.length; n++) {
+      const a = WD.countries[W.nations[n].id].a, x = G.n[n];
+      x.nukes = { US: 25, RU: 25, GB: 3, FR: 1 }[a] || 0; x.prog = x.nukes ? 0 : -1;
+      x.tech = x.tech.filter(t => !['abm', 'stealth', 'lrm', 'carrier'].includes(t) || (t === 'carrier' && ['US', 'GB', 'FR'].includes(a)));
+    }
+    for (const P of G.p) P.abm = 0;
+    for (const a of ['US', 'RU']) { const n = natA2(a); if (n >= 0) for (const w of NATO.concat(['JP', 'KR'])) { const m = natA2(w); if (m >= 0 && m !== n && a === 'RU') G.rel[m] = Math.min(G.rel[m] || 0, -20); } }
+  }
+  ownVer++; bordersDirty = true; staticDirty = true;
+}
+// ---------- objectives: several ways to win ----------
+const GOALS = {
+  mil: { name: 'Militare', what: g => `Controlla ${g.prov} province` },
+  eco: { name: 'Economica', what: g => `Rendita netta di ${g.inc} oro al mese` },
+  dip: { name: 'Diplomatica', what: g => `${g.allies} alleati contemporaneamente` },
+  surv: { name: 'Sopravvivenza', what: g => `Resisti fino a ${dateStr(g.until)} senza perdere la capitale` },
+};
+function setGoals() {
+  const me = G.player, start = provsOf(me).length, inc = Math.max(0, income(me).net);
+  G.goals = { prov: Math.max(start + 10, start * 2), inc: Math.max(120, Math.round(inc * 3 / 10) * 10), allies: 6, until: G.day + 5 * 360, cap: G.n[me].capital };
+  G.won = []; G.capLost = false;
+}
+function goalProgress(k) {
+  const g = G.goals, me = G.player;
+  if (k === 'mil') return Math.min(1, provsOf(me).length / g.prov);
+  if (k === 'eco') return Math.max(0, Math.min(1, income(me).net / g.inc));
+  if (k === 'dip') return Math.min(1, G.n[me].allies.filter(a => G.n[a].alive).length / g.allies);
+  return G.capLost ? 0 : Math.min(1, G.day / g.until);
+}
+function checkGoals() {
+  if (!G.goals || G.player < 0) return;
+  for (const k in GOALS) if (!G.won.includes(k) && goalProgress(k) >= 1) { G.won.push(k); ask(() => showVictory(k)); }
+}
+function showVictory(k) {
+  showModal(`<div class="eyebrow">Obiettivo raggiunto</div><h1 style="font-size:30px">Vittoria ${GOALS[k].name.toLowerCase()}!</h1>
+    <p>${esc(GOALS[k].what(G.goals))}: ce l'hai fatta il ${dateStr(G.day)}. ${G.won.length > 1 ? `Hai già ottenuto ${G.won.length} vittorie diverse.` : 'Puoi continuare a giocare per le altre vittorie o per conquistare il mondo.'}</p>
+    <div class="row"><button class="btn primary" id="vGo">Continua a giocare</button><button class="btn" id="vNew">Nuova partita</button></div>`, () => {
+    $('vGo').onclick = hideModal;
+    $('vNew').onclick = () => { modalQueue.length = 0; hideModal(); clearSaved(); toIntro(); };
+  });
+}
+// ---------- save slots: three manual saves plus the automatic one ----------
+const SLOT_KEY = k => 'terre-di-conquista-slot-' + k;
+function slotMeta(k) {
+  try { const s = JSON.parse(localStorage.getItem(k === 0 ? SAVE_KEY : SLOT_KEY(k)) || 'null'); return s && s.v === 6 ? { s, name: fullNameOf(s.player), date: dateOf(s), scen: SCENARIOS[s.scen || 'peace'].name } : null; } catch (e) { return null; }
+}
+const fullNameOf = n => W.nations[n] ? W.nations[n].place : '?';
+const dateOf = s => { const y = (s.y0 || START_YEAR) + Math.floor(s.day / 360); return (s.day % 30 + 1) + ' ' + MONTHS[Math.floor(s.day / 30) % 12] + ' ' + y; };
+function saveSlot(k) { try { localStorage.setItem(SLOT_KEY(k), JSON.stringify(serialize())); toast(`Partita salvata nello slot ${k}.`, 'good'); } catch (e) { toast('Spazio esaurito: impossibile salvare.', 'bad'); } }
+function loadSlot(k) {
+  const m = slotMeta(k);
+  if (!m || !restore(m.s)) return toast('Salvataggio non leggibile.', 'bad');
+  modalQueue.length = 0; hideModal();
+  selected = -1; selUnit = 0; selMove = 0; multi = false; moveMode = false;
+  feed.length = 0; unread = 0; marks.length = 0;
+  const c = W.provs[G.n[G.player].capital].c;
+  centerOn(c[0], c[1], Math.max(cam.s, vw / 700), 0.4);
+  $('intro').hidden = true;
+  startPlay();
+  toast(`Caricata: ${m.name}, ${m.date}.`, 'good');
+}
+function showSlots(canSave) {
+  const rows = [0, 1, 2, 3].map(k => {
+    const m = slotMeta(k);
+    return `<div class="drow slot"><b>${k === 0 ? 'Automatico' : 'Slot ' + k}</b><span class="sub">${m ? `${esc(m.name)} · ${m.date} · ${esc(m.scen)}` : 'vuoto'}</span>
+      ${canSave && k ? `<button class="btn sm" data-save="${k}">Salva</button>` : ''}<button class="btn sm" data-load="${k}" ${m ? '' : 'disabled'}>Carica</button></div>`;
+  }).join('');
+  showModal(`<div class="eyebrow">Partite</div><h1 style="font-size:26px">Salvataggi</h1>
+    <p>Il salvataggio automatico avviene ogni 10 giorni. Gli slot restano su questo telefono, in questo browser.</p>
+    <div class="slots">${rows}</div><div class="row"><button class="btn" id="slClose">Chiudi</button></div>`, () => {
+    $('slClose').onclick = hideModal;
+    for (const b of document.querySelectorAll('[data-save]')) b.onclick = () => { saveSlot(+b.dataset.save); hideModal(); showSlots(true); };
+    for (const b of document.querySelectorAll('[data-load]')) b.onclick = () => loadSlot(+b.dataset.load);
+  });
+}
+// ---------- guided tutorial ----------
+const TUTORIAL = [
+  ['Benvenuto, comandante', 'Il tuo paese è in blu. Il tempo scorre da solo: in basso a destra metti in pausa o acceleri.', '#clock'],
+  ['Le tue province', 'Tocca una tua provincia: vedi soldati, carri, aerei, navi e le basi che ci sono.', null],
+  ['Muovere le truppe', 'Nel pannello premi Truppe, poi tocca un punto qualsiasi della mappa. Con “+ Tappe” disegni un percorso.', '#panel'],
+  ['Arruolare e costruire', 'Gestisci apre arruolamento e costruzioni: caserme per fanteria e carri, aeroporti per gli aerei, porti per le navi.', '#panel'],
+  ['Lo Stato', 'Il cruscotto (icona del grafico) contiene Governo, Ricerca, Commercio, guerre, alleanze e i tuoi obiettivi di vittoria.', '#dashBtn'],
+  ['Armi speciali', 'Il pulsante ☢ apre la modalità nucleare. Il riquadro accanto attiva la selezione multipla per muovere più armate insieme.', '#nukeBtn'],
+  ['Restare informati', 'Il giornale raccoglie le notizie. I segnali rossi pulsanti sulla mappa sono allarmi: toccali per andarci. Buona fortuna!', '#newsBtn'],
+];
+let tutStep = -1;
+function startTutorial() { tutStep = 0; setSpeed(0); showTutorial(); }
+function showTutorial() {
+  for (const el of document.querySelectorAll('.tut-hi')) el.classList.remove('tut-hi');
+  const box = $('tutorial');
+  if (tutStep < 0 || tutStep >= TUTORIAL.length) {
+    box.hidden = true; tutStep = -1;
+    try { localStorage.setItem('tdc-tutorial-done', '1'); } catch (e) {}
+    return;
+  }
+  const [title, text, target] = TUTORIAL[tutStep];
+  if (tutStep === 1 && G.player >= 0) { selected = G.n[G.player].capital; const c = W.provs[selected].c; centerOn(c[0], c[1], Math.max(cam.s, 1), 0.3); renderPanel(); requestRender(); }
+  if (target && $(target.slice(1))) $(target.slice(1)).classList.add('tut-hi');
+  box.innerHTML = `<div class="eyebrow">Tutorial · ${tutStep + 1} di ${TUTORIAL.length}</div><b>${title}</b><p>${text}</p>
+    <div class="row"><button class="btn primary" id="tutNext">${tutStep === TUTORIAL.length - 1 ? 'Inizia a giocare' : 'Avanti'}</button><button class="btn" id="tutSkip">Salta</button></div>`;
+  box.hidden = false;
+  $('tutNext').onclick = () => { tutStep++; if (tutStep >= TUTORIAL.length) setSpeed(1); showTutorial(); };
+  $('tutSkip').onclick = () => { tutStep = -1; setSpeed(1); showTutorial(); };
+}
+const tutorialDone = () => { try { return localStorage.getItem('tdc-tutorial-done') === '1'; } catch (e) { return true; } };
 
 // ownership lists, cached until a province changes hands
 let ownVer = 0, listVer = -1, lists = [];
@@ -827,7 +983,7 @@ function neighborNations(n) {
   for (const i of provsOf(n)) for (const j of W.provs[i].nb) if (G.p[j].owner !== n) s.add(G.p[j].owner);
   return [...s];
 }
-function dateStr(day) { return (Math.floor(day) % 30 + 1) + ' ' + MONTHS[Math.floor(day / 30) % 12] + ' ' + (START_YEAR + Math.floor(day / 360)); }
+function dateStr(day) { return (Math.floor(day) % 30 + 1) + ' ' + MONTHS[Math.floor(day / 30) % 12] + ' ' + (((G && G.y0) || START_YEAR) + Math.floor(day / 360)); }
 const nearPlayer = n => G.player >= 0 && (n === G.player || allied(G.player, n) || neighborNations(G.player).includes(n));
 
 // ---------- relations with the player, -100..100 ----------
@@ -1412,6 +1568,7 @@ function capture(i, newOwner, army) {
   if (newOwner === G.player) { conquestFx(i, 'win'); announce('win', pname(i), i); relAdd(old, -3); G.n[newOwner].mood = Math.min(20, G.n[newOwner].mood + 2); }
   else if (old === G.player) { conquestFx(i, 'loss'); announce('loss', pname(i), i); G.n[old].mood = Math.max(-25, G.n[old].mood - 4); }
   else conquestFx(i, 'other');
+  if (G.goals && old === G.player && i === G.goals.cap) G.capLost = true;
   if (G.n[old].capital === i) {
     const rest = provsOf(old).slice().sort((x, y) => G.p[y].eco - G.p[x].eco || G.p[y].army - G.p[x].army);
     if (rest.length) {
@@ -1877,6 +2034,7 @@ function dailyUpdate() {
     G.hist.push({ d: G.day, gold: Math.floor(G.n[G.player].gold), prov: provsOf(G.player).length, army: f.army, inc: income(G.player).net });
     if (G.hist.length > 240) G.hist.shift();
   }
+  if (G.day % 30 === 0) checkGoals();
   if (G.day % 10 === 0) save();
 }
 let lastTs = 0, lastDayShown = -1;
@@ -3339,6 +3497,17 @@ function announce(kind, name, prov) {
 function esc(s) { return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
 const popStr = n => n >= 1e6 ? (n / 1e6).toFixed(1).replace('.', ',') + ' mln' : Math.round(n / 1000) + ' mila';
 
+let scenKey = 'peace';
+function renderScen() {
+  $('scenSeg').innerHTML = Object.entries(SCENARIOS).map(([k, v]) => `<button class="${k === scenKey ? 'on' : ''}" data-scen="${k}">${v.name}<small>${v.year}</small></button>`).join('');
+  $('scenDesc').textContent = SCENARIOS[scenKey].desc;
+  $('introEye').textContent = 'Strategia in tempo reale · ' + SCENARIOS[scenKey].name;
+  for (const b of document.querySelectorAll('[data-scen]')) b.onclick = () => {
+    scenKey = b.dataset.scen;
+    G = initialState(); applyScenario(scenKey);
+    renderScen(); updateIntro(); requestRender();
+  };
+}
 function updateIntro() {
   const box = $('pickInfo');
   if (pickNation < 0) { box.innerHTML = '<span class="sub">Tocca un paese sulla mappa per sceglierlo. Pizzica per lo zoom.</span>'; $('startBtn').disabled = true; $('startBtn').textContent = 'Gioca'; return; }
@@ -3359,7 +3528,8 @@ function updateHUD() {
   $('topFlag').style.background = nat(me).color;
   $('topName').textContent = nat(me).place;
   const st = Math.round(x.stab);
-  $('topDate').innerHTML = `${dateStr(G.day)} · <span class="${st < 35 ? 'neg' : st >= 60 ? 'pos' : ''}">stab. ${st}</span>${sanctioned(me) ? ' · <span class="neg">sanzioni</span>' : ''}`;
+  // stability only shows up here when it starts to be a problem
+  $('topDate').innerHTML = `${dateStr(G.day)}${st < 50 ? ` · <span class="${st < 35 ? 'neg' : ''}">stab. ${st}</span>` : ''}${sanctioned(me) ? ' · <span class="neg">sanzioni</span>' : ''}`;
   $('nukeCount').textContent = x.nukes;
   $('topGold').innerHTML = `${Math.floor(x.gold)} <small class="${inc.net < 0 ? 'neg' : ''}">${inc.net >= 0 ? '+' : ''}${inc.net}</small>`;
 }
@@ -3697,6 +3867,8 @@ function renderDash() {
       <button class="kpi nukek" id="dNuke"><span>Testate nucleari</span><b>${x.nukes}</b><small>${x.prog > 0 ? `pronto tra ${Math.ceil((x.prog - G.day) / 30)} mesi` : x.prog === 0 ? 'apri l\'arsenale' : 'avvia un programma'}</small></button>
     </div>
     <div class="vs"><span class="tag war">${x.wars.length} guerre</span><span class="tag ally">${x.allies.length} alleati</span><span class="tag truce">${Object.keys(G.truce).filter(k => k.split('-').map(Number).includes(me)).length} tregue</span></div>
+    ${G.goals ? `<h3>Obiettivi di vittoria</h3>${Object.keys(GOALS).map(k => { const pr = goalProgress(k), done = G.won.includes(k);
+      return `<div class="goal ${done ? 'done' : ''}"><div class="ch"><b>${GOALS[k].name}</b><span class="sub">${esc(GOALS[k].what(G.goals))}</span><span class="rv">${done ? '✓' : Math.floor(pr * 100) + '%'}</span></div><div class="meterbar"><i style="width:${done ? 100 : pr * 100}%"></i></div></div>`; }).join('')}<p class="sub">Più la conquista del mondo intero. ${G.capLost ? 'La capitale è caduta: la vittoria di sopravvivenza non è più possibile.' : ''}</p>` : ''}
     <h3>Oro nel tempo</h3>${spark(G.hist.map(h => h.gold), '#f5c451')}
     <h3>Province nel tempo</h3>${spark(G.hist.map(h => h.prov), '#4da3ff')}`;
   } else if (dashTab === 'wars') {
@@ -3919,8 +4091,11 @@ function showMenu() {
       <li>Il pulsante ☢ in basso a sinistra apre la modalità nucleare. Il giornale raccoglie tutte le notizie.</li>
     </ul>
     <label class="toggle"><input type="checkbox" id="mAuto" ${G.autoPause ? 'checked' : ''}> Pausa automatica sugli allarmi gravi (guerra dichiarata, capitale attaccata, armi nucleari)</label>
+    <div class="row"><button class="btn" id="mSlots">Salvataggi</button><button class="btn" id="mTut">Rivedi tutorial</button></div>
     <div class="row"><button class="btn primary" id="mClose">Riprendi</button><button class="btn" id="mNew">Nuova partita</button></div>`, () => {
     $('mClose').onclick = hideModal;
+    $('mSlots').onclick = () => { hideModal(); showSlots(true); };
+    $('mTut').onclick = () => { hideModal(); startTutorial(); };
     $('mAuto').onchange = e => { G.autoPause = e.target.checked; save(); };
     $('mNew').onclick = () => {
       if ($('mNew').dataset.c) { clearSaved(); modalQueue.length = 0; hideModal(); toIntro(); }
@@ -3936,12 +4111,14 @@ function setSpeed(k) {
 function findProv(name) { const p = W.provs.find(p => p.name === name); return p ? p.c : [MW / 2, MH / 2]; }
 function toIntro() {
   phase = 'pick'; pickNation = -1; selected = -1;
-  G = initialState(); ownVer++; bordersDirty = true; staticDirty = true;
+  G = initialState(); applyScenario(scenKey); ownVer++; bordersDirty = true; staticDirty = true;
   feed.length = 0; unread = 0;
+  renderScen();
   $('top').hidden = true; $('clock').hidden = true; $('panel').hidden = true; $('nukeBtn').hidden = true; $('multiBtn').hidden = true; marks.length = 0;
   multi = false; multiSel.units.clear(); multiSel.provs.clear(); selMove = 0; selUnit = 0; moveMode = false; nukeAim = -1; wayMode = ''; wayPts = []; $('banner').hidden = true; closeDash();
   $('intro').hidden = false;
   $('continueBtn').hidden = !loadSaved();
+  $('loadBtn').hidden = ![1, 2, 3].some(k => slotMeta(k));
   vw = window.innerWidth; vh = window.innerHeight;
   const [x, y] = findProv('Vienna');
   centerOn(x, y, Math.max(minScale(), vw / 1100), 0.3);
@@ -3959,11 +4136,16 @@ $('startBtn').onclick = () => {
   G.player = pickNation; selected = G.n[pickNation].capital;
   const c = W.provs[selected].c;
   centerOn(c[0], c[1], Math.max(cam.s, vw / 420), 0.25);
+  setGoals();
   startPlay(); save();
-  toast(`Governi ${fullName(pickNation)}. Il tempo scorre: buona fortuna.`, 'good');
+  const wars = G.n[G.player].wars.filter(w => G.n[w].alive);
+  toast(`Governi ${fullName(pickNation)}.${wars.length ? ` Sei già in guerra con ${wars.map(fullName).join(', ')}!` : ' Il tempo scorre: buona fortuna.'}`, wars.length ? 'bad' : 'good');
+  if (!tutorialDone()) startTutorial();
 };
+$('loadBtn').onclick = () => showSlots(false);
 $('continueBtn').onclick = () => {
   if (!restore(loadSaved())) return;
+  if (!G.goals) setGoals();
   selected = -1;
   const c = W.provs[G.n[G.player].capital].c;
   centerOn(c[0], c[1], Math.max(cam.s, vw / 700), 0.4);
@@ -3996,6 +4178,7 @@ function boot(data) {
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { readFonts(); bordersDirty = true; staticDirty = true; requestRender(); });
   requestAnimationFrame(ts => { lastTs = ts; frame(ts); });
 }
+if ('serviceWorker' in navigator && !window.claude && /github\.io$|^localhost$/.test(location.hostname)) navigator.serviceWorker.register('sw.js').catch(() => {});
 window.claude?.hot?.snapshot?.(() => (G && phase === 'play' ? serialize() : null));
 const hot = window.claude?.hot;
 hot?.ready ? hot.ready(boot) : boot(hot?.data ?? null);
