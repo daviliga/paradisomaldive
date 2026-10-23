@@ -3,30 +3,32 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="theme-color" content="#0f1b2d">
+<meta name="theme-color" content="#070b14">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IM+Fell+English+SC&family=Alegreya+Sans:wght@400;500;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700&family=Manrope:wght@500;600;700;800&display=swap">
 <style>
-/* Layout: full-screen map canvas, a slim command bar on top, a bottom sheet for the selected province. Single dark "war room" look. */
+/* Layout: edge-to-edge map, floating frosted HUD cards (identity left, resources right), a floating sheet for the selection and a pill CTA for the turn. Single dark "command center" look. */
 :root {
-  --sea: #13243b;
-  --sea-deep: #0c1828;
-  --ink: #ece6d6;
-  --muted: #9ba7b6;
-  --panel: rgba(16, 24, 37, 0.94);
-  --line: rgba(236, 230, 214, 0.14);
-  --gold: #d8b25a;
-  --war: #d0563e;
-  --peace: #78ad72;
-  --display: "IM Fell English SC", "Iowan Old Style", "Palatino", Georgia, serif;
-  --body: "Alegreya Sans", -apple-system, "Segoe UI", system-ui, sans-serif;
+  --bg: #070b14;
+  --glass: rgba(14, 20, 34, 0.72);
+  --glass-strong: rgba(14, 20, 34, 0.9);
+  --line: rgba(255, 255, 255, 0.09);
+  --ink: #eef2f8;
+  --muted: #8d9ab0;
+  --accent: #5b8cff;
+  --gold: #f5c451;
+  --war: #ff5d6c;
+  --peace: #3ddc97;
+  --display: "Sora", -apple-system, "Segoe UI", system-ui, sans-serif;
+  --body: "Manrope", -apple-system, "Segoe UI", system-ui, sans-serif;
+  --radius: 18px;
   color-scheme: dark;
 }
 [hidden] { display: none !important; }
 html, body { height: 100%; }
 body {
-  background: var(--sea-deep);
+  background: var(--bg);
   color: var(--ink);
   font-family: var(--body);
   font-size: 15px;
@@ -35,77 +37,99 @@ body {
   padding-right: max(16px, env(safe-area-inset-right, 0px));
   -webkit-user-select: none; user-select: none;
   -webkit-tap-highlight-color: transparent;
-}
-#map { position: fixed; inset: 0; width: 100%; height: 100%; touch-action: none; display: block; background: var(--sea-deep); }
-
-#top {
-  position: fixed; top: 0; left: 0; right: 0; z-index: 5;
-  padding: calc(env(safe-area-inset-top, 0px) + 8px) max(12px, env(safe-area-inset-right, 0px)) 8px max(12px, env(safe-area-inset-left, 0px));
-  display: flex; align-items: center; gap: 10px;
-  background: linear-gradient(var(--panel), rgba(16, 24, 37, 0.7));
-  border-bottom: 1px solid var(--line);
   font-variant-numeric: tabular-nums;
 }
-#top .flag { width: 22px; height: 22px; border-radius: 4px; border: 1px solid rgba(0,0,0,.5); flex: none; }
-#top .who { font-family: var(--display); font-size: 17px; line-height: 1.1; min-width: 0; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-#top .who small { display: block; font-family: var(--body); font-size: 12px; color: var(--muted); }
-.stat { display: flex; flex-direction: column; align-items: flex-end; font-size: 14px; line-height: 1.15; }
-.stat span { font-size: 10px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
-.stat b { font-weight: 700; }
-.stat .gold { color: var(--gold); }
-.icon-btn { background: transparent; color: var(--ink); border: 1px solid var(--line); border-radius: 8px; width: 36px; height: 36px; font-size: 18px; flex: none; cursor: pointer; }
+#map { position: fixed; inset: 0; width: 100%; height: 100%; touch-action: none; display: block; background: var(--bg); }
+
+.glass {
+  background: var(--glass);
+  -webkit-backdrop-filter: blur(18px) saturate(1.4); backdrop-filter: blur(18px) saturate(1.4);
+  border: 1px solid var(--line);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+}
+svg.i { width: 16px; height: 16px; flex: none; }
+
+#top {
+  position: fixed; z-index: 5; left: 0; right: 0;
+  top: calc(env(safe-area-inset-top, 0px) + 10px);
+  padding: 0 max(12px, env(safe-area-inset-right, 0px)) 0 max(12px, env(safe-area-inset-left, 0px));
+  display: flex; align-items: flex-start; gap: 8px; pointer-events: none;
+}
+#top > * { pointer-events: auto; }
+.who-card { display: flex; align-items: center; gap: 10px; padding: 7px 14px 7px 7px; border-radius: 999px; min-width: 0; flex: 0 1 auto; }
+.flag { width: 30px; height: 30px; border-radius: 50%; flex: none; box-shadow: inset 0 0 0 2px rgba(255,255,255,.25); }
+.who { min-width: 0; display: grid; }
+.who b { font-family: var(--display); font-weight: 600; font-size: 15px; line-height: 1.15; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.who small { font-size: 11.5px; color: var(--muted); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.res { margin-left: auto; display: flex; gap: 6px; align-items: center; }
+.pill { display: flex; align-items: center; gap: 6px; padding: 8px 11px; border-radius: 999px; font-weight: 800; font-size: 14px; white-space: nowrap; }
+.pill small { font-weight: 700; font-size: 11px; color: var(--peace); }
+.pill small.neg { color: var(--war); }
+.pill.gold svg { color: var(--gold); }
+.pill.army svg { color: var(--accent); }
+.icon-btn { display: grid; place-items: center; width: 38px; height: 38px; border-radius: 50%; color: var(--ink); cursor: pointer; flex: none; padding: 0; }
+.icon-btn svg { width: 18px; height: 18px; }
 
 button { font-family: var(--body); }
-button:focus-visible, input:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
 #endTurn {
   position: fixed; z-index: 6;
   right: max(14px, env(safe-area-inset-right, 0px));
   bottom: calc(env(safe-area-inset-bottom, 0px) + 14px);
-  background: var(--gold); color: #1b1408; border: 0; border-radius: 999px;
-  padding: 14px 20px; font-size: 16px; font-weight: 700; letter-spacing: .02em;
-  box-shadow: 0 6px 20px rgba(0,0,0,.45); cursor: pointer;
+  display: flex; align-items: center; gap: 10px;
+  background: linear-gradient(135deg, #6f9bff, #4a6cf0); color: #fff; border: 0; border-radius: 999px;
+  padding: 14px 20px 14px 22px; font-size: 15px; font-weight: 800; letter-spacing: .01em;
+  box-shadow: 0 10px 28px rgba(74, 108, 240, 0.45), inset 0 1px 0 rgba(255,255,255,.25); cursor: pointer;
 }
-#endTurn:disabled { opacity: .5; }
+#endTurn svg { width: 18px; height: 18px; }
+#endTurn:active { transform: scale(.97); }
 
 #panel {
-  position: fixed; z-index: 6; left: 0; right: 0; bottom: 0;
-  padding: 14px max(16px, env(safe-area-inset-right, 0px)) calc(env(safe-area-inset-bottom, 0px) + 76px) max(16px, env(safe-area-inset-left, 0px));
-  background: var(--panel); border-top: 1px solid var(--line);
-  border-radius: 14px 14px 0 0;
-  display: grid; gap: 12px;
-  font-variant-numeric: tabular-nums;
-  max-height: 62%; overflow-y: auto;
+  position: fixed; z-index: 6;
+  left: max(10px, env(safe-area-inset-left, 0px)); right: max(10px, env(safe-area-inset-right, 0px));
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 78px);
+  margin: 0 auto; max-width: 520px;
+  padding: 14px; border-radius: 22px;
+  display: grid; gap: 10px;
+  max-height: 58%; overflow-y: auto;
+  background: var(--glass-strong);
 }
-#panel .head { display: flex; align-items: center; gap: 10px; }
-#panel .chip { width: 14px; height: 14px; border-radius: 3px; flex: none; }
-#panel h2 { margin: 0; font-family: var(--display); font-weight: 400; font-size: 22px; line-height: 1.1; flex: 1; min-width: 0; text-wrap: balance; }
-#panel .sub { color: var(--muted); font-size: 13px; }
-#panel .close { margin-left: auto; }
-.grid4 { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
-.cell { display: flex; flex-direction: column; gap: 2px; }
-.cell span { font-size: 10px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
-.cell b { font-size: 17px; }
+#panel .head { display: flex; align-items: center; gap: 12px; }
+#panel .chip { width: 12px; height: 34px; border-radius: 6px; flex: none; }
+#panel h2 { margin: 0; font-family: var(--display); font-weight: 700; font-size: 20px; line-height: 1.15; min-width: 0; text-wrap: balance; letter-spacing: -0.01em; }
+#panel .sub, .sub { color: var(--muted); font-size: 13px; font-weight: 600; }
+.cap-badge { display: inline-block; vertical-align: 3px; margin-left: 6px; font-family: var(--body); font-size: 10px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--gold); background: rgba(245,196,81,.12); padding: 3px 7px; border-radius: 999px; }
+.grid4 { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.cell { display: grid; gap: 3px; padding: 7px 9px; border-radius: 12px; background: rgba(255,255,255,0.04); }
+.cell span { font-size: 10px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.cell b { font-family: var(--display); font-size: 17px; font-weight: 600; }
+.meter { display: flex; gap: 3px; }
+.meter i { flex: 1; height: 4px; border-radius: 2px; background: rgba(255,255,255,.12); }
+.meter i.on { background: var(--accent); }
 .actions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
 .act {
-  background: rgba(236,230,214,.06); color: var(--ink); border: 1px solid var(--line);
-  border-radius: 10px; padding: 9px 6px; font-size: 14px; font-weight: 500; cursor: pointer;
-  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  background: rgba(255,255,255,0.06); color: var(--ink); border: 1px solid var(--line);
+  border-radius: 14px; padding: 8px 6px; font-size: 13px; font-weight: 700; cursor: pointer;
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
 }
-.act small { color: var(--gold); font-size: 12px; }
-.act:disabled { opacity: .4; }
-.act.war { border-color: var(--war); color: #f3c2b6; }
-.act.peace { border-color: var(--peace); color: #cfe7c9; }
-.act.wide { grid-column: 1 / -1; flex-direction: row; justify-content: center; gap: 8px; }
-.move { display: grid; gap: 6px; }
-.move label { display: flex; justify-content: space-between; font-size: 13px; color: var(--muted); }
-.move label b { color: var(--ink); }
-.move input { width: 100%; accent-color: var(--gold); }
-.hint { font-size: 13px; color: var(--muted); margin: 0; }
-.tag { display: inline-block; font-size: 11px; letter-spacing: .06em; text-transform: uppercase; padding: 2px 7px; border-radius: 999px; border: 1px solid var(--line); }
-.tag.war { color: #f3c2b6; border-color: var(--war); }
-.tag.peace { color: #cfe7c9; border-color: var(--peace); }
-.tag.truce { color: var(--gold); border-color: var(--gold); }
+.act svg { width: 18px; height: 18px; color: var(--accent); }
+.act small { color: var(--gold); font-size: 11.5px; font-weight: 800; }
+.act:disabled { opacity: .38; }
+.act.war { background: rgba(255, 93, 108, 0.14); border-color: rgba(255, 93, 108, 0.4); color: #ffd3d8; }
+.act.peace { background: rgba(61, 220, 151, 0.12); border-color: rgba(61, 220, 151, 0.4); color: #c9f6e2; }
+.act.wide { grid-column: 1 / -1; flex-direction: row; justify-content: center; gap: 8px; padding: 13px; }
+.move { display: grid; gap: 8px; }
+.move label { display: flex; justify-content: space-between; font-size: 13px; font-weight: 700; color: var(--muted); }
+.move label b { color: var(--ink); font-family: var(--display); }
+.move input { width: 100%; accent-color: var(--accent); }
+.hint { font-size: 12.5px; color: var(--muted); margin: 0; line-height: 1.4; }
+.tag { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; padding: 4px 9px; border-radius: 999px; }
+.tag::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.tag.war { color: var(--war); background: rgba(255,93,108,.12); }
+.tag.peace { color: var(--peace); background: rgba(61,220,151,.12); }
+.tag.truce { color: var(--gold); background: rgba(245,196,81,.12); }
+.vs { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; }
 
 #toasts {
   position: fixed; z-index: 7; left: 0; right: 0;
@@ -114,61 +138,85 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--gold); outl
   padding: 0 max(16px, env(safe-area-inset-right, 0px)) 0 max(16px, env(safe-area-inset-left, 0px));
 }
 .toast {
-  background: var(--panel); border: 1px solid var(--line); border-left: 3px solid var(--gold);
-  border-radius: 8px; padding: 8px 12px; font-size: 14px; max-width: 420px;
-  box-shadow: 0 4px 14px rgba(0,0,0,.4);
-  animation: tin .25s ease-out;
+  display: flex; align-items: center; gap: 10px;
+  border-radius: 999px; padding: 9px 16px 9px 12px; font-size: 13.5px; font-weight: 700; max-width: 440px;
+  animation: tin .3s cubic-bezier(.2,.9,.3,1.2);
 }
-.toast.bad { border-left-color: var(--war); }
-.toast.good { border-left-color: var(--peace); }
-@keyframes tin { from { transform: translateY(-6px); opacity: .3; } }
+.toast::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--accent); flex: none; box-shadow: 0 0 10px currentColor; color: var(--accent); }
+.toast.bad::before { background: var(--war); color: var(--war); }
+.toast.good::before { background: var(--peace); color: var(--peace); }
+@keyframes tin { from { transform: translateY(-10px) scale(.96); opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { .toast { animation: none; } }
 
-#intro, #modal {
-  position: fixed; z-index: 8; left: 0; right: 0; bottom: 0;
-  padding: 20px max(18px, env(safe-area-inset-right, 0px)) calc(env(safe-area-inset-bottom, 0px) + 20px) max(18px, env(safe-area-inset-left, 0px));
-  background: var(--panel); border-top: 1px solid var(--line); border-radius: 16px 16px 0 0;
-  display: grid; gap: 12px;
+#intro {
+  position: fixed; z-index: 8;
+  left: max(10px, env(safe-area-inset-left, 0px)); right: max(10px, env(safe-area-inset-right, 0px));
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 10px);
+  margin: 0 auto; max-width: 520px;
+  padding: 22px 20px 20px; border-radius: 26px;
+  display: grid; gap: 14px;
+  background: var(--glass-strong);
 }
-#modal { top: 0; bottom: 0; border-radius: 0; align-content: center; justify-items: center; background: rgba(8, 13, 22, 0.86); }
-#modal .box { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 20px; max-width: 420px; width: 100%; display: grid; gap: 12px; }
-h1 { margin: 0; font-family: var(--display); font-weight: 400; font-size: 34px; line-height: 1; letter-spacing: .01em; }
-#intro p, #modal p { margin: 0; line-height: 1.45; max-width: 60ch; color: var(--muted); }
-#intro .pick { display: flex; align-items: center; gap: 10px; min-height: 28px; }
-#intro .pick b { font-family: var(--display); font-size: 20px; font-weight: 400; }
+.eyebrow { font-size: 11px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; color: var(--accent); }
+h1 { margin: 0; font-family: var(--display); font-weight: 700; font-size: 30px; line-height: 1.05; letter-spacing: -0.02em; }
+#intro p, #modal p { margin: 0; line-height: 1.5; max-width: 60ch; color: var(--muted); font-weight: 500; }
+.pick { display: flex; align-items: center; gap: 12px; min-height: 52px; padding: 10px 12px; border-radius: 16px; background: rgba(255,255,255,0.05); }
+.pick .flag { width: 34px; height: 34px; }
+.pick b { font-family: var(--display); font-size: 17px; font-weight: 700; display: block; }
+.stats { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 2px; }
+.stats span { font-size: 12.5px; font-weight: 700; color: var(--muted); }
+.stats em { font-style: normal; color: var(--ink); }
 .row { display: flex; flex-wrap: wrap; gap: 8px; }
 .btn {
-  border-radius: 10px; padding: 12px 16px; font-size: 15px; font-weight: 700; cursor: pointer;
-  background: rgba(236,230,214,.06); color: var(--ink); border: 1px solid var(--line);
+  border-radius: 14px; padding: 13px 18px; font-size: 15px; font-weight: 800; cursor: pointer;
+  background: rgba(255,255,255,0.07); color: var(--ink); border: 1px solid var(--line);
 }
-.btn.primary { background: var(--gold); color: #1b1408; border-color: var(--gold); }
-.btn:disabled { opacity: .45; }
-#modal ul { margin: 0; padding-left: 18px; color: var(--muted); line-height: 1.45; }
+.btn.primary { flex: 1; background: linear-gradient(135deg, #6f9bff, #4a6cf0); color: #fff; border: 0; box-shadow: 0 8px 22px rgba(74, 108, 240, 0.4); }
+.btn:disabled { opacity: .4; box-shadow: none; }
+#modal { position: fixed; inset: 0; z-index: 9; display: grid; place-items: center; padding: 20px max(16px, env(safe-area-inset-right, 0px)) 20px max(16px, env(safe-area-inset-left, 0px)); background: rgba(4, 7, 14, 0.6); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
+#modal .box { border-radius: 24px; padding: 22px; max-width: 420px; width: 100%; display: grid; gap: 14px; background: var(--glass-strong); }
+#modal ul { margin: 0; padding-left: 18px; color: var(--muted); line-height: 1.5; font-weight: 500; display: grid; gap: 4px; }
 </style>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-coin" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="currentColor" opacity=".25"/><circle cx="12" cy="12" r="6.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 8.5v7" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+  <symbol id="i-army" viewBox="0 0 24 24"><path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6z" fill="currentColor" opacity=".25"/><path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></symbol>
+  <symbol id="i-menu" viewBox="0 0 24 24"><path d="M5 8h14M5 16h14" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></symbol>
+  <symbol id="i-next" viewBox="0 0 24 24"><path d="M5 12h13M13 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-close" viewBox="0 0 24 24"><path d="M7 7l10 10M17 7L7 17" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></symbol>
+  <symbol id="i-chart" viewBox="0 0 24 24"><path d="M4 19h16M7 15l4-4 3 3 5-6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-fort" viewBox="0 0 24 24"><path d="M4 20V9h3V6h3v3h4V6h3v3h3v11z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M10 20v-5h4v5" fill="none" stroke="currentColor" stroke-width="2"/></symbol>
+</svg>
 
 <canvas id="map" aria-label="Mappa del mondo"></canvas>
 
 <header id="top" hidden>
-  <div class="flag" id="topFlag"></div>
-  <div class="who" id="topName">—<small id="topDate"></small></div>
-  <div class="stat"><span>Oro</span><b class="gold" id="topGold">0</b></div>
-  <div class="stat"><span>Truppe</span><b id="topArmy">0</b></div>
-  <button class="icon-btn" id="menuBtn" aria-label="Menu">☰</button>
+  <div class="who-card glass">
+    <span class="flag" id="topFlag"></span>
+    <div class="who"><b id="topName">—</b><small id="topDate"></small></div>
+  </div>
+  <div class="res">
+    <div class="pill gold glass"><svg class="i"><use href="#i-coin"/></svg><span id="topGold">0</span></div>
+    <div class="pill army glass"><svg class="i"><use href="#i-army"/></svg><span id="topArmy">0</span></div>
+    <button class="icon-btn glass" id="menuBtn" aria-label="Menu"><svg><use href="#i-menu"/></svg></button>
+  </div>
 </header>
 
 <div id="toasts" aria-live="polite"></div>
 
-<section id="panel" hidden></section>
+<section id="panel" class="glass" hidden></section>
 
-<button id="endTurn" hidden>Fine turno ▸</button>
+<button id="endTurn" hidden>Fine turno <svg><use href="#i-next"/></svg></button>
 
-<section id="intro">
+<section id="intro" class="glass">
+  <div class="eyebrow">Strategia a turni · Mondo 2026</div>
   <h1>Terre di Conquista</h1>
-  <p>Il mondo di oggi, diviso in oltre mille province. Scegli un paese, fai crescere l'economia, arruola eserciti e conquista il pianeta.</p>
+  <p>Il mondo di oggi in oltre mille province. Scegli un paese, fai crescere l'economia, arruola eserciti e conquista il pianeta.</p>
   <div class="pick" id="pickInfo"><span class="sub">Tocca un paese sulla mappa per sceglierlo. Pizzica per lo zoom.</span></div>
   <div class="row">
     <button class="btn primary" id="startBtn" disabled>Gioca</button>
-    <button class="btn" id="continueBtn" hidden>Continua partita</button>
+    <button class="btn" id="continueBtn" hidden>Continua</button>
   </div>
 </section>
 
@@ -262,7 +310,7 @@ function buildWorld() {
       if (d > bd) { bd = d; best = h; }
     }
     hues.set(n.id, best);
-    const s = 34 + (n.id * 37) % 24, l = 50 + (n.id * 53) % 16;
+    const s = 44 + (n.id * 37) % 18, l = 55 + (n.id * 53) % 10;
     n.color = `hsl(${best.toFixed(0)} ${s}% ${l}%)`;
   }
   return { provs, nations, tiles, hit, HG, hcols, hrows, routes: WD.routes };
@@ -563,25 +611,23 @@ function prepareSea() {
   seaLayer = document.createElement('canvas');
   seaLayer.width = Math.round(MW * S); seaLayer.height = Math.round(MH * S);
   const s = seaLayer.getContext('2d');
-  const grad = s.createLinearGradient(0, 0, 0, seaLayer.height);
-  grad.addColorStop(0, '#13253b'); grad.addColorStop(0.5, '#173049'); grad.addColorStop(1, '#13253b');
+  const grad = s.createRadialGradient(seaLayer.width / 2, seaLayer.height * 0.45, 0, seaLayer.width / 2, seaLayer.height * 0.45, seaLayer.width * 0.6);
+  grad.addColorStop(0, '#0d1830'); grad.addColorStop(1, '#070c18');
   s.fillStyle = grad; s.fillRect(0, 0, seaLayer.width, seaLayer.height);
-  s.scale(S, S);
-  // shallow water halo around the coasts
+  // dot grid
+  s.fillStyle = 'rgba(255, 255, 255, 0.07)';
+  for (let y = 10; y < seaLayer.height; y += 20) for (let x = 10; x < seaLayer.width; x += 20) s.fillRect(x, y, 1.6, 1.6);
+  // soft blue glow along the coasts
   const land = document.createElement('canvas');
   land.width = seaLayer.width; land.height = seaLayer.height;
   const l = land.getContext('2d');
-  l.scale(S, S); l.fillStyle = 'rgba(70, 120, 150, 0.55)';
+  l.scale(S, S); l.fillStyle = 'rgba(70, 130, 255, 0.55)';
   const all = new Path2D();
   for (const p of W.provs) all.addPath(p.path);
   l.fill(all);
-  s.setTransform(1, 0, 0, 1, 0, 0);
-  s.filter = 'blur(5px)'; s.drawImage(land, 0, 0); s.filter = 'none';
-  s.scale(S, S);
-  // graticule every 15°
-  s.strokeStyle = 'rgba(200, 220, 240, 0.06)'; s.lineWidth = 2;
-  for (let x = 0; x <= MW; x += MW / 24) { s.beginPath(); s.moveTo(x, 0); s.lineTo(x, MH); s.stroke(); }
-  for (let y = 0; y <= MH; y += MW / 24) { s.beginPath(); s.moveTo(0, y); s.lineTo(MW, y); s.stroke(); }
+  s.filter = 'blur(14px)'; s.globalAlpha = 0.6; s.drawImage(land, 0, 0);
+  s.filter = 'blur(4px)'; s.globalAlpha = 0.7; s.drawImage(land, 0, 0);
+  s.filter = 'none'; s.globalAlpha = 1;
 }
 
 function rebuildCaches() {
@@ -613,7 +659,7 @@ function rebuildCaches() {
 function buildLabels() {
   labelCache = [];
   ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0);
-  ctx.font = '100px ' + FONT_DISPLAY;
+  ctx.font = '700 100px ' + FONT_DISPLAY;
   const seen = new Uint8Array(W.provs.length);
   for (let n = 0; n < W.nations.length; n++) {
     const list = provsOf(n);
@@ -654,13 +700,20 @@ function buildLabels() {
 const visible = bb => bb[2] * cam.s + cam.x >= 0 && bb[0] * cam.s + cam.x <= vw && bb[3] * cam.s + cam.y >= 0 && bb[1] * cam.s + cam.y <= vh;
 let renderQueued = false;
 function requestRender() { if (!renderQueued) { renderQueued = true; requestAnimationFrame(render); } }
+function glowStroke(path, color, width, blur) {
+  ctx.save();
+  ctx.shadowColor = color; ctx.shadowBlur = blur;
+  ctx.strokeStyle = color; ctx.lineWidth = width;
+  ctx.stroke(path);
+  ctx.restore();
+}
 function render() {
   renderQueued = false;
   if (!W || !G) return;
-  if (bordersDirty) rebuildCaches(); 
+  if (bordersDirty) rebuildCaches();
   const s = cam.s, px = 1 / s;
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  ctx.fillStyle = '#0c1828'; ctx.fillRect(0, 0, vw, vh);
+  ctx.fillStyle = '#070b14'; ctx.fillRect(0, 0, vw, vh);
   ctx.save();
   ctx.translate(cam.x, cam.y); ctx.scale(s, s);
   ctx.drawImage(seaLayer, 0, 0, MW, MH);
@@ -671,33 +724,37 @@ function render() {
     ctx.fillStyle = W.nations[n].color;
     ctx.fill(NP.path, 'evenodd');
   }
-  if (phase === 'pick' && pickNation >= 0 && nationPaths[pickNation]) {
-    ctx.fillStyle = 'rgba(255, 248, 225, 0.35)'; ctx.fill(nationPaths[pickNation].path, 'evenodd');
+  const focus = phase === 'pick' ? pickNation : -1;
+  if (focus >= 0 && nationPaths[focus]) {
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.28)'; ctx.fill(nationPaths[focus].path, 'evenodd');
   }
   if (phase === 'play') {
-    ctx.fillStyle = 'rgba(208, 86, 62, 0.4)';
+    ctx.fillStyle = 'rgba(255, 93, 108, 0.45)';
     for (let i = 0; i < G.p.length; i++) if (G.p[i].hit === G.turn && visible(W.provs[i].bb)) ctx.fill(W.provs[i].path, 'evenodd');
   }
   let targets = [];
   if (phase === 'play' && selected >= 0) {
-    ctx.fillStyle = 'rgba(255, 248, 225, 0.35)'; ctx.fill(W.provs[selected].path, 'evenodd');
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.25)'; ctx.fill(W.provs[selected].path, 'evenodd');
     if (G.p[selected].owner === G.player && G.p[selected].fresh > 0) targets = W.provs[selected].nb;
   }
 
-ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+  ctx.lineJoin = 'round'; ctx.lineCap = 'round';
   for (const T of W.tiles) {
     if (!T.chunks.length || !visible(T.bb)) continue;
-    if (s > 0.45) { ctx.strokeStyle = 'rgba(25, 20, 12, 0.3)'; ctx.lineWidth = 0.7 * px; ctx.stroke(T.thin); }
-    ctx.strokeStyle = 'rgba(18, 16, 14, 0.8)'; ctx.lineWidth = Math.min(1.6, 0.6 + s) * px; ctx.stroke(T.thick);
-    ctx.strokeStyle = 'rgba(8, 14, 24, 0.9)'; ctx.lineWidth = Math.min(1.4, 0.5 + s) * px; ctx.stroke(T.coast);
+    if (s > 0.45) { ctx.strokeStyle = 'rgba(255, 255, 255, 0.14)'; ctx.lineWidth = 0.6 * px; ctx.stroke(T.thin); }
+    ctx.strokeStyle = 'rgba(7, 11, 20, 0.55)'; ctx.lineWidth = Math.min(1.1, 0.4 + s) * px; ctx.stroke(T.coast);
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.75)'; ctx.lineWidth = Math.min(1.3, 0.5 + s) * px; ctx.stroke(T.thick);
   }
+  if (focus >= 0 && nationPaths[focus]) glowStroke(nationPaths[focus].path, '#ffffff', 1.6 * px, 10);
 
   // sea routes (some wrap around the date line)
   if (s > 0.45) {
-    ctx.setLineDash([4 * px, 4 * px]); ctx.strokeStyle = 'rgba(236, 230, 214, 0.4)'; ctx.lineWidth = 1 * px;
+    ctx.setLineDash([1 * px, 5 * px]); ctx.strokeStyle = 'rgba(150, 185, 255, 0.55)'; ctx.lineWidth = 1.6 * px;
     ctx.beginPath();
     for (const [a, b] of W.routes) {
       let [x0, y0] = W.provs[a].c, [x1, y1] = W.provs[b].c;
+      const dx = Math.abs(x1 - x0), len = Math.hypot(Math.min(dx, MW - dx), y1 - y0);
+      if (len > 140 && a !== selected && b !== selected) continue;
       if (Math.abs(x1 - x0) > MW / 2) {
         if (x0 > x1) [x0, y0, x1, y1] = [x1, y1, x0, y0];
         const ym = y0 + (y1 - y0) * (x0 / (x0 + MW - x1));
@@ -710,53 +767,83 @@ ctx.lineJoin = 'round'; ctx.lineCap = 'round';
   for (const t of targets) {
     const enemy = G.p[t].owner !== G.player;
     if (enemy && !atWar(G.player, G.p[t].owner)) continue;
-    ctx.strokeStyle = enemy ? '#ff7a5c' : '#f4e6b0';
-    ctx.lineWidth = 2.4 * px;
-    ctx.stroke(W.provs[t].path);
+    glowStroke(W.provs[t].path, enemy ? '#ff5d6c' : '#5b8cff', 2.2 * px, 8);
   }
-  if (selected >= 0 && phase === 'play') { ctx.strokeStyle = '#fff6da'; ctx.lineWidth = 2.4 * px; ctx.stroke(W.provs[selected].path); }
+  if (selected >= 0 && phase === 'play') glowStroke(W.provs[selected].path, '#ffffff', 2.2 * px, 12);
 
+  // country names
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  ctx.fillStyle = 'rgba(22, 18, 12, 0.62)';
+  ctx.shadowColor = 'rgba(0, 0, 0, 0.45)'; ctx.shadowBlur = 6;
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.92)';
   for (const L of labelCache) {
     const sz = L.size * s;
-    if (sz < 7 || sz > 90) continue;
+    if (sz < 8 || sz > 80) continue;
     ctx.save(); ctx.translate(L.x, L.y); ctx.rotate(L.ang);
-    ctx.font = L.size.toFixed(2) + 'px ' + FONT_DISPLAY;
+    ctx.font = '700 ' + L.size.toFixed(2) + 'px ' + FONT_DISPLAY;
     ctx.fillText(L.text, 0, 0);
     ctx.restore();
   }
+  ctx.shadowBlur = 0; ctx.shadowColor = 'transparent';
   ctx.restore();
 
-  // screen-space overlays: capitals and armies
+  // screen-space overlays: army pills placed by priority without overlapping
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  ctx.font = '700 11px ' + FONT_BODY;
+  const cands = [];
   for (let i = 0; i < W.provs.length; i++) {
     const P = G.p[i], [mx, my] = W.provs[i].c;
     const x = mx * s + cam.x, y = my * s + cam.y;
-    if (x < -40 || y < -40 || x > vw + 40 || y > vh + 40) continue;
+    if (x < -50 || y < -40 || x > vw + 50 || y > vh + 40) continue;
     const mine = phase === 'play' && P.owner === G.player;
-    const showArmy = P.army > 0 && (s > 0.9 || (mine && s > 0.3) || i === selected || targets.includes(i));
-    if (G.n[P.owner].capital === i && (s > 0.3 || mine)) star(x, y - (showArmy ? 14 : 0), s > 0.6 ? 6.5 : 4.5);
-    if (showArmy) {
-      const label = fmt(P.army);
-      const w = ctx.measureText(label).width + 10;
-      ctx.fillStyle = mine ? 'rgba(16, 24, 37, 0.9)' : 'rgba(40, 30, 22, 0.78)';
-      roundRect(x - w / 2, y - 8, w, 16, 5); ctx.fill();
-      if (mine && P.fresh > 0) { ctx.fillStyle = '#d8b25a'; ctx.beginPath(); ctx.arc(x + w / 2 - 1, y - 7, 3, 0, 7); ctx.fill(); }
-      ctx.fillStyle = '#f2ecdc'; ctx.fillText(label, x, y + 0.5);
+    const isCap = G.n[P.owner].capital === i;
+    const showArmy = P.army > 0 && (s > 1.6 || (mine && s > 0.3) || i === selected || targets.includes(i));
+    const pri = (i === selected ? 1e9 : 0) + (targets.includes(i) ? 1e8 : 0) + (isCap ? 1e7 : 0) + (mine ? 1e6 : 0) + P.army;
+    cands.push({ i, x, y, mine, isCap, showArmy, pri });
+  }
+  cands.sort((a, b) => b.pri - a.pri);
+  const placed = [];
+  const free = (x0, y0, w, h) => !placed.some(r => x0 < r[0] + r[2] + 2 && x0 + w + 2 > r[0] && y0 < r[1] + r[3] + 2 && y0 + h + 2 > r[1]);
+  for (const c of cands) {
+    const P = G.p[c.i];
+    if (c.showArmy) {
+      ctx.font = '800 11px ' + FONT_BODY;
+      const w = ctx.measureText(fmt(P.army)).width + 22 + (c.isCap ? 12 : 0);
+      if (free(c.x - w / 2, c.y - 10, w, 19)) { placed.push([c.x - w / 2, c.y - 10, w, 19]); armyPill(c.x, c.y, P, c.mine, c.isCap); continue; }
     }
-    if (s > 2.2 && !showArmy) {
-      ctx.fillStyle = 'rgba(20, 16, 10, 0.7)'; ctx.fillText(W.provs[i].name, x, y);
-    } else if (s > 2.2) {
-      ctx.fillStyle = 'rgba(20, 16, 10, 0.7)'; ctx.fillText(W.provs[i].name, x, y + 16);
+    if (c.isCap && (s > 0.5 || c.mine) && free(c.x - 5, c.y - 5, 10, 10)) { placed.push([c.x - 5, c.y - 5, 10, 10]); capitalDot(c.x, c.y, W.nations[P.owner].color); }
+  }
+  if (s > 2.2) {
+    ctx.font = '700 10.5px ' + FONT_BODY;
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.6)'; ctx.shadowBlur = 4;
+    for (const c of cands) {
+      const name = W.provs[c.i].name, w = ctx.measureText(name).width, y = c.y + 19;
+      if (!free(c.x - w / 2, y - 6, w, 12)) continue;
+      placed.push([c.x - w / 2, y - 6, w, 12]);
+      ctx.fillText(name, c.x, y);
     }
+    ctx.shadowBlur = 0; ctx.shadowColor = 'transparent';
   }
 }
-function star(x, y, r) {
-  ctx.beginPath();
-  for (let k = 0; k < 10; k++) { const a = -Math.PI / 2 + k * Math.PI / 5, rr = k % 2 ? r * 0.45 : r; ctx.lineTo(x + Math.cos(a) * rr, y + Math.sin(a) * rr); }
-  ctx.closePath(); ctx.fillStyle = '#f1d27a'; ctx.fill(); ctx.lineWidth = 1; ctx.strokeStyle = 'rgba(0,0,0,.6)'; ctx.stroke();
+function capitalDot(x, y, color) {
+  ctx.beginPath(); ctx.arc(x, y, 5, 0, 7); ctx.fillStyle = '#ffffff'; ctx.fill();
+  ctx.beginPath(); ctx.arc(x, y, 2.6, 0, 7); ctx.fillStyle = color; ctx.fill();
+}
+function armyPill(x, y, P, mine, isCap) {
+  ctx.font = '800 11px ' + FONT_BODY;
+  const label = fmt(P.army);
+  const w = ctx.measureText(label).width + 22 + (isCap ? 12 : 0), h = 19;
+  const x0 = x - w / 2, y0 = y - h / 2;
+  ctx.shadowColor = 'rgba(0, 0, 0, 0.45)'; ctx.shadowBlur = 6; ctx.shadowOffsetY = 2;
+  ctx.fillStyle = 'rgba(10, 14, 26, 0.88)';
+  roundRect(x0, y0, w, h, h / 2); ctx.fill();
+  ctx.shadowBlur = 0; ctx.shadowOffsetY = 0; ctx.shadowColor = 'transparent';
+  if (mine) { ctx.strokeStyle = P.fresh > 0 ? '#5b8cff' : 'rgba(255, 255, 255, 0.25)'; ctx.lineWidth = 1.5; ctx.stroke(); }
+  ctx.beginPath(); ctx.arc(x0 + 9.5, y, 4, 0, 7); ctx.fillStyle = W.nations[P.owner].color; ctx.fill();
+  if (isCap) { ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1.5; ctx.stroke(); }
+  ctx.fillStyle = '#ffffff'; ctx.textAlign = 'left';
+  ctx.fillText(label, x0 + 17 + (isCap ? 0 : 0), y + 0.5);
+  if (isCap) { ctx.fillStyle = '#f5c451'; ctx.fillText('★', x0 + w - 15, y + 0.5); }
+  ctx.textAlign = 'center';
 }
 function roundRect(x, y, w, h, r) { ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath(); }
 function fmt(n) { return n >= 10000 ? Math.round(n / 1000) + 'k' : n >= 1000 ? (n / 1000).toFixed(1).replace('.0', '') + 'k' : String(n); }
@@ -874,7 +961,7 @@ function tap(sx, sy) {
 const $ = id => document.getElementById(id);
 function toast(msg, kind = '') {
   const el = document.createElement('div');
-  el.className = 'toast ' + kind; el.textContent = msg;
+  el.className = 'toast glass ' + kind; el.textContent = msg;
   const box = $('toasts');
   box.prepend(el);
   while (box.children.length > 3) box.lastChild.remove();
@@ -888,8 +975,10 @@ function updateIntro() {
   if (pickNation < 0) { box.innerHTML = '<span class="sub">Tocca un paese sulla mappa per sceglierlo. Pizzica per lo zoom.</span>'; $('startBtn').disabled = true; $('startBtn').textContent = 'Gioca'; return; }
   const ps = provsOf(pickNation);
   const cap = W.provs[G.n[pickNation].capital];
-  box.innerHTML = `<span class="chip" style="width:16px;height:16px;border-radius:3px;background:${nat(pickNation).color}"></span>
-    <div><b>${esc(fullName(pickNation))}</b><div class="sub">Capitale ${esc(cap.name)} · ${ps.length} province · ${fmt(armyOf(pickNation))} soldati · +${income(pickNation).net} oro/mese</div></div>`;
+  box.innerHTML = `<span class="flag" style="background:${nat(pickNation).color}"></span>
+    <div style="min-width:0"><b>${esc(fullName(pickNation))}</b><div class="stats">
+      <span>Capitale <em>${esc(cap.name)}</em></span><span><em>${ps.length}</em> province</span>
+      <span><em>${fmt(armyOf(pickNation))}</em> soldati</span><span><em>+${income(pickNation).net}</em> oro/mese</span></div></div>`;
   $('startBtn').disabled = false;
   $('startBtn').textContent = 'Gioca con ' + nat(pickNation).place;
 }
@@ -898,9 +987,9 @@ function updateUI() {
   if (phase === 'pick' || G.player < 0) return;
   const me = G.player, inc = income(me);
   $('topFlag').style.background = nat(me).color;
-  $('topName').firstChild.textContent = nat(me).place;
+  $('topName').textContent = nat(me).place;
   $('topDate').textContent = dateStr(G.turn) + ' · ' + provsOf(me).length + ' province';
-  $('topGold').textContent = `${G.n[me].gold} (${inc.net >= 0 ? '+' : ''}${inc.net})`;
+  $('topGold').innerHTML = `${G.n[me].gold} <small class="${inc.net < 0 ? 'neg' : ''}">${inc.net >= 0 ? '+' : ''}${inc.net}</small>`;
   $('topArmy').textContent = fmt(armyOf(me));
   renderPanel();
 }
@@ -912,31 +1001,32 @@ function renderPanel() {
   const isCap = G.n[o].capital === i;
   const pr = W.provs[i];
   const origin = pr.country !== o ? ` · un tempo ${esc(nat(pr.country).place)}` : '';
+  const meter = (v, max) => '<div class="meter">' + Array.from({ length: max }, (_, k) => `<i class="${k < v ? 'on' : ''}"></i>`).join('') + '</div>';
   let html = `<div class="head"><span class="chip" style="background:${nat(o).color}"></span>
-    <div style="min-width:0;flex:1"><h2>${esc(pr.name)}${isCap ? ' ★' : ''}</h2><div class="sub">${esc(fullName(o))}${origin} · ${popStr(pr.pop)} abitanti</div></div>
-    <button class="icon-btn close" id="closePanel" aria-label="Chiudi">✕</button></div>
+    <div style="min-width:0;flex:1"><h2>${esc(pr.name)}${isCap ? '<span class="cap-badge">Capitale</span>' : ''}</h2><div class="sub">${esc(fullName(o))}${origin} · ${popStr(pr.pop)} abitanti</div></div>
+    <button class="icon-btn" id="closePanel" aria-label="Chiudi" style="background:rgba(255,255,255,.06)"><svg><use href="#i-close"/></svg></button></div>
     <div class="grid4">
       <div class="cell"><span>Truppe</span><b>${fmt(P.army)}</b></div>
-      <div class="cell"><span>Economia</span><b>${P.eco}/5</b></div>
-      <div class="cell"><span>Fortezza</span><b>${P.fort}/3</b></div>
+      <div class="cell"><span>Economia</span><b>${P.eco}</b>${meter(P.eco, 5)}</div>
+      <div class="cell"><span>Fortezza</span><b>${P.fort}</b>${meter(P.fort, 3)}</div>
       <div class="cell"><span>Rendita</span><b>+${provIncome(i)}</b></div>
     </div>`;
   if (o === me) {
     html += `<div class="actions">
-      <button class="act" id="aRec" ${gold < RECRUIT_COST ? 'disabled' : ''}>Arruola 1k<small>${RECRUIT_COST} oro</small></button>
-      <button class="act" id="aEco" ${P.eco >= 5 || gold < ecoCost(i) ? 'disabled' : ''}>Economia<small>${P.eco >= 5 ? 'max' : ecoCost(i) + ' oro'}</small></button>
-      <button class="act" id="aFort" ${P.fort >= 3 || gold < fortCost(i) ? 'disabled' : ''}>Fortifica<small>${P.fort >= 3 ? 'max' : fortCost(i) + ' oro'}</small></button>
+      <button class="act" id="aRec" ${gold < RECRUIT_COST ? 'disabled' : ''}><svg><use href="#i-plus"/></svg>Arruola 1k<small>${RECRUIT_COST} oro</small></button>
+      <button class="act" id="aEco" ${P.eco >= 5 || gold < ecoCost(i) ? 'disabled' : ''}><svg><use href="#i-chart"/></svg>Economia<small>${P.eco >= 5 ? 'max' : ecoCost(i) + ' oro'}</small></button>
+      <button class="act" id="aFort" ${P.fort >= 3 || gold < fortCost(i) ? 'disabled' : ''}><svg><use href="#i-fort"/></svg>Fortifica<small>${P.fort >= 3 ? 'max' : fortCost(i) + ' oro'}</small></button>
     </div>`;
     if (P.fresh > 0) {
       const step = P.fresh >= 1000 ? 100 : 10;
       html += `<div class="move"><label for="moveAmt">Truppe da muovere <b id="moveVal">${fmt(P.fresh)}</b></label>
         <input type="range" id="moveAmt" min="${step}" max="${P.fresh}" step="${step}" value="${P.fresh}">
-        <p class="hint">Tocca una provincia evidenziata: bordo chiaro per spostarti, rosso per attaccare. Le linee tratteggiate sono rotte via mare.</p></div>`;
+        <p class="hint">Tocca un confine evidenziato: blu per spostarti, rosso per attaccare.</p></div>`;
     } else html += `<p class="hint">Queste truppe hanno già marciato. Potranno muoversi il prossimo mese.</p>`;
   } else {
     const war = atWar(me, o), tr = truceLeft(me, o);
     const tag = war ? '<span class="tag war">In guerra</span>' : tr ? `<span class="tag truce">Tregua · ${tr} mesi</span>` : '<span class="tag peace">In pace</span>';
-    html += `<div class="sub">${tag}&nbsp; ${provsOf(o).length} province · esercito ${fmt(armyOf(o))} · tu ${fmt(armyOf(me))}</div>`;
+    html += `<div class="vs">${tag}<span class="sub">${provsOf(o).length} province · esercito ${fmt(armyOf(o))} · il tuo ${fmt(armyOf(me))}</span></div>`;
     if (war) html += `<div class="actions"><button class="act peace wide" id="aPeace" ${G.asked.includes(o) ? 'disabled' : ''}>${G.asked.includes(o) ? 'Hanno già risposto questo mese' : 'Proponi la pace'}</button></div>`;
     else if (!tr) html += `<div class="actions"><button class="act war wide" id="aWar">${pendingConfirm === o ? 'Conferma: guerra a ' + esc(nat(o).place) : 'Dichiara guerra'}</button></div>`;
   }
@@ -1011,7 +1101,7 @@ $('startBtn').onclick = () => {
   if (pickNation < 0) return;
   G.player = pickNation; selected = G.n[pickNation].capital;
   const c = W.provs[selected].c;
-  centerOn(c[0], c[1], Math.max(cam.s, vw / 700), 0.35);
+  centerOn(c[0], c[1], Math.max(cam.s, vw / 420), 0.25);
   startPlay(); save();
   toast(`Governi ${fullName(pickNation)}. Buona fortuna.`, 'good');
 };
