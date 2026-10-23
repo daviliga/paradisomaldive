@@ -361,7 +361,7 @@ h1 { margin: 0; font-family: var(--display); font-weight: 700; font-size: 30px; 
 'use strict';
 const WD = window.WORLD;
 const MW = WD.W, MH = WD.H;
-const SAVE_KEY = 'terre-di-conquista-live-v4';
+const SAVE_KEY = 'terre-di-conquista-live-v5';
 const MONTHS = ['Gen','Feb','Mar','Apr','Mag','Giu','Lug','Ago','Set','Ott','Nov','Dic'];
 const START_YEAR = 2026;
 const RECRUIT = 1000, RECRUIT_COST = 20;
@@ -373,7 +373,21 @@ const LAND_SPEED = 12, SEA_SPEED = 40, AIR_SPEED = 160;  // map units per day
 const AIR_RANGE = 220;                                    // how far planes fly from their base
 const SPEEDS = [0, 0.5, 1, 2];                            // game days per real second
 const FGT_COST = 45, BMB_COST = 55, SHIP_COST = 70, AID_COST = 60;
-const BAR_COST = 60, APT_COST = 120, PORT_COST = 100;
+const BAR_COST = 60, APT_COST = 120, PORT_COST = 100, MIS_COST = 50;
+const MISSILE_RANGE = 320, MISSILE_SPEED = 900;
+// narrow straits and canals the 20-unit water grid would otherwise close (map units)
+const STRAITS = [
+  [[1797.8, 843.3], [1815.6, 842.7], [1830, 840.8]],                                   // Gibraltar
+  [[2162.2, 790.5], [2171.1, 787.2], [2182.2, 782], [2198.9, 777.4], [2203.3, 769.4]], // Dardanelles, Bosphorus
+  [[2236.7, 897], [2237, 909.2], [2239.4, 919], [2241.1, 925]],                         // Suez
+  [[990, 1153.1], [992.2, 1158.7], [994.4, 1164.3]],                                    // Panama
+  [[2000, 540.5], [2011.1, 554.7], [2018.9, 564.2], [2022.2, 575.1]],                   // Danish straits
+  [[2355.6, 1112.5], [2360, 1119.3], [2364.4, 1123.8]],                                 // Bab-el-Mandeb
+  [[2282.2, 721.4], [2284.4, 718.7], [2287.8, 716.6]],                                  // Kerch
+  [[2498.9, 961], [2504.4, 957.5], [2511.1, 961]],                                      // Hormuz
+  [[2988.9, 1226.7], [3011.1, 1237.8], [3031.1, 1246.7]],                               // Malacca
+  [[2051.3, 812], [2051.7, 815.2]], [[1978.9, 772.1], [1981.1, 773]],                   // Messina, Bonifacio
+];
 // icons shared by the HTML panels and the map canvas
 const ICON_PATHS = {
   inf: ['fill', 'M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6z'],
@@ -382,6 +396,7 @@ const ICON_PATHS = {
   port: ['stroke', 'M12 7v14M8 10.5h8M5 14a7 7 0 0 0 14 0M12 3.2a1.9 1.9 0 1 1 0 3.8 1.9 1.9 0 0 1 0-3.8z'],
   fort: ['stroke', 'M4 20V9h3V6h3v3h4V6h3v3h3v11zM10 20v-5h4v5'],
   eco: ['stroke', 'M4 19h16M7 15l4-4 3 3 5-6'],
+  mis: ['fill', 'M12 1.5l2.6 4.2v9.6l2.4 3.2v3l-3.6-1.6h-2.8L7 21.5v-3l2.4-3.2V5.7z'],
 };
 const ICON = {};
 for (const k in ICON_PATHS) {
@@ -476,20 +491,33 @@ function buildWorld() {
   }
   // coastal provinces and the sea lanes between them (nearby coasts and the sea routes)
   // a border with a single owner is only a coast if there is actually sea on the other side
+  // land mask rasterised once at half resolution: fast "is this point on land?" lookups
+  const LR = 0.5, lw = Math.round(MW * LR), lh = Math.round(MH * LR);
+  const lcv = document.createElement('canvas'); lcv.width = lw; lcv.height = lh;
+  const lctx = lcv.getContext('2d', { willReadFrequently: true });
+  lctx.scale(LR, LR); lctx.fillStyle = '#fff';
+  for (const p of provs) lctx.fill(p.path, 'evenodd');
+  const lmask = lctx.getImageData(0, 0, lw, lh).data;
   const inLand = (x, y) => {
-    const gx = Math.floor(x / HG), gy = Math.floor(y / HG);
-    if (gx < 0 || gy < 0 || gx >= hcols || gy >= hrows) return false;
-    for (const id of hit[gx + gy * hcols]) { const p = provs[id]; if (x >= p.bb[0] && x <= p.bb[2] && y >= p.bb[1] && y <= p.bb[3] && pointInProv(x, y, p)) return true; }
-    return false;
+    const px = Math.floor(x * LR), py = Math.floor(y * LR);
+    if (px < 0 || py < 0 || px >= lw || py >= lh) return false;
+    return lmask[(py * lw + px) * 4 + 3] > 127;
   };
+  // every real coast sample is a candidate harbour; keep the one nearest the province centre
+  const harbour = new Map();
   for (const a of WD.arcs) {
-    if (a.o.length !== 1 || provs[a.o[0]].coastal) continue;
-    const pts = decodeRing(a.d), n = pts.length / 2;
-    for (let k = 0; k < n - 1; k += Math.max(1, Math.floor(n / 6))) {
+    if (a.o.length !== 1) continue;
+    const id = a.o[0], pts = decodeRing(a.d), n = pts.length / 2;
+    for (let k = 0; k < n - 1; k += Math.max(1, Math.floor(n / 8))) {
       const x0 = pts[2 * k], y0 = pts[2 * k + 1], x1 = pts[2 * k + 2], y1 = pts[2 * k + 3];
-      const len = Math.hypot(x1 - x0, y1 - y0) || 1, nx = -(y1 - y0) / len * 2.5, ny = (x1 - x0) / len * 2.5;
+      const len = Math.hypot(x1 - x0, y1 - y0) || 1, nx = -(y1 - y0) / len * 3, ny = (x1 - x0) / len * 3;
       const mx = (x0 + x1) / 2, my = (y0 + y1) / 2;
-      if (!inLand(mx + nx, my + ny) || !inLand(mx - nx, my - ny)) { provs[a.o[0]].coastal = true; break; }
+      const wetA = !inLand(mx + nx, my + ny), wetB = !inLand(mx - nx, my - ny);
+      if (wetA === wetB) continue;
+      provs[id].coastal = true;
+      const sx = wetA ? nx : -nx, sy = wetA ? ny : -ny, d = Math.hypot(mx - provs[id].c[0], my - provs[id].c[1]);
+      const h = harbour.get(id);
+      if (!h || d < h.d) harbour.set(id, { d, pp: [mx - sx * 1.6, my - sy * 1.6], sea: [mx + sx * 4, my + sy * 4] });
     }
   }
   const W_adj = (a, b) => provs[a].landNb.includes(b);
@@ -509,9 +537,86 @@ function buildWorld() {
     }
   }
   for (const [a, b] of WD.routes) { if (!navNb[a].includes(b)) navNb[a].push(b); if (!navNb[b].includes(a)) navNb[b].push(a); }
-  return { provs, nations, tiles, hit, HG, hcols, hrows, routes: WD.routes, routeSet, navNb };
+  // water grid for ships: a cell is sea when its centre is not on land
+  const SG = 20, scols = Math.ceil(MW / SG), srows = Math.ceil(MH / SG), sea = new Uint8Array(scols * srows);
+  for (let r = 0; r < srows; r++) for (let c = 0; c < scols; c++) sea[r * scols + c] = inLand(c * SG + SG / 2, r * SG + SG / 2) ? 0 : 1;
+  for (const raw of STRAITS) for (let k = 1, chain = extendChain(raw, 40); k < chain.length; k++) {
+    const [x0, y0] = chain[k - 1], [x1, y1] = chain[k], n = Math.ceil(Math.hypot(x1 - x0, y1 - y0) / 3);
+    for (let j = 0; j <= n; j++) for (const ox of [-7, 0, 7]) for (const oy of [-7, 0, 7]) {
+      const x = x0 + (x1 - x0) * j / n + ox, y = y0 + (y1 - y0) * j / n + oy;
+      sea[Math.floor(y / SG) * scols + Math.floor(x / SG)] = 1;
+    }
+  }
+  const grid = { SG, scols, srows, sea };
+  // harbours: a point on the coast for the port, and an anchorage on a sea cell just off it
+  for (const [id, h] of harbour) {
+    provs[id].pp = h.pp;
+    const cell = nearestSeaCell(grid, h.sea[0], h.sea[1], 4);
+    if (cell >= 0) provs[id].sp = [(cell % scols) * SG + SG / 2, Math.floor(cell / scols) * SG + SG / 2];
+  }
+  return { provs, nations, tiles, hit, HG, hcols, hrows, routes: WD.routes, routeSet, navNb, grid };
 }
 
+// a strait line pushed further out at both ends, so it reaches open water
+function extendChain(c, d) {
+  const ext = (a, b) => { const l = Math.hypot(a[0] - b[0], a[1] - b[1]) || 1; return [a[0] + (a[0] - b[0]) / l * d, a[1] + (a[1] - b[1]) / l * d]; };
+  return [ext(c[0], c[1]), ...c, ext(c[c.length - 1], c[c.length - 2])];
+}
+function nearestSeaCell(g, x, y, maxR) {
+  const cx = Math.floor(x / g.SG), cy = Math.floor(y / g.SG);
+  for (let r = 0; r <= maxR; r++) {
+    let best = -1, bd = Infinity;
+    for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) {
+      if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
+      const c = (cx + dx + g.scols) % g.scols, rr = cy + dy;
+      if (rr < 0 || rr >= g.srows || !g.sea[rr * g.scols + c]) continue;
+      const d = dx * dx + dy * dy;
+      if (d < bd) { bd = d; best = rr * g.scols + c; }
+    }
+    if (best >= 0) return best;
+  }
+  return -1;
+}
+function seaAt(x, y) {
+  const g = W.grid, c = Math.floor(x / g.SG), r = Math.floor(y / g.SG);
+  return r >= 0 && r < g.srows && g.sea[r * g.scols + ((c + g.scols) % g.scols)] === 1;
+}
+// shortest water route between two points (8-neighbour BFS on the grid, then straightened)
+function seaRoute(a, b) {
+  const g = W.grid, s0 = nearestSeaCell(g, a[0], a[1], 5), s1 = nearestSeaCell(g, b[0], b[1], 5);
+  if (s0 < 0 || s1 < 0) return null;
+  if (s0 === s1) return [];
+  const prev = new Int32Array(g.sea.length).fill(-1), q = new Int32Array(g.sea.length);
+  let head = 0, tail = 0; q[tail++] = s0; prev[s0] = s0;
+  while (head < tail) {
+    const cur = q[head++];
+    if (cur === s1) break;
+    const cx = cur % g.scols, cy = Math.floor(cur / g.scols);
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+      if (!dx && !dy) continue;
+      const ny = cy + dy; if (ny < 0 || ny >= g.srows) continue;
+      const nx = (cx + dx + g.scols) % g.scols, nc = ny * g.scols + nx;
+      if (!g.sea[nc] || prev[nc] >= 0) continue;
+      if (dx && dy && (!g.sea[cy * g.scols + nx] || !g.sea[ny * g.scols + cx])) continue;   // no squeezing through corners
+      prev[nc] = cur; q[tail++] = nc;
+    }
+  }
+  if (prev[s1] < 0) return null;
+  const cells = [];
+  for (let c = s1; c !== s0; c = prev[c]) cells.unshift(c);
+  cells.unshift(s0);
+  const pt = c => [(c % g.scols) * g.SG + g.SG / 2, Math.floor(c / g.scols) * g.SG + g.SG / 2];
+  // keep only the turns needed to stay on water
+  const clear = (p, r) => { if (Math.abs(p[0] - r[0]) > MW / 2) return false; const n = Math.ceil(Math.hypot(r[0] - p[0], r[1] - p[1]) / 8); for (let k = 1; k < n; k++) if (!seaAt(p[0] + (r[0] - p[0]) * k / n, p[1] + (r[1] - p[1]) * k / n)) return false; return true; };
+  const out = [pt(cells[0])];
+  let i = 0;
+  while (i < cells.length - 1) {
+    let j = cells.length - 1;
+    while (j > i + 1 && !clear(pt(cells[i]), pt(cells[j]))) j--;
+    out.push(pt(cells[j])); i = j;
+  }
+  return out;
+}
 // ---------- game state ----------
 let W = null, G = null;
 let phase = 'pick';
@@ -529,7 +634,7 @@ function initialState() {
     const eco = ecoFromPop(p.pop);
     const army = p.cap ? 2500 + eco * 400 : 300 + eco * 200;
     // barracks in the capital and big cities, an airport in the capital, ports in big coastal cities
-    return { owner: p.country, army, fgt: 0, bmb: 0, ships: 0, eco, fort: p.cap ? 1 : 0, rad: -1, hit: -1, sup: 1,
+    return { owner: p.country, army, fgt: 0, bmb: 0, ships: 0, mis: 0, eco, fort: p.cap ? 1 : 0, rad: -1, hit: -1, sup: 1,
       bar: p.cap || eco >= 3 ? 1 : 0, apt: p.cap ? 1 : 0, port: p.coastal && (p.cap || eco >= 3) ? 1 : 0 };
   });
   const n = W.nations.map(x => {
@@ -537,8 +642,8 @@ function initialState() {
     if (x.size) {
       // air force at the capital, fleet in the main port
       const f = startForces(x), cap = x.capital;
-      p[cap].fgt = Math.ceil(f.air * 0.6); p[cap].bmb = Math.floor(f.air * 0.4);
-      const port = W.provs[cap].coastal ? cap : W.provs.filter(q => q.country === x.id && q.coastal).sort((a, b) => provDist(a.id, cap) - provDist(b.id, cap))[0]?.id;
+      p[cap].fgt = Math.ceil(f.air * 0.6); p[cap].bmb = Math.floor(f.air * 0.4); p[cap].mis = Math.round(f.air / 5);
+      const port = W.provs[cap].sp ? cap : W.provs.filter(q => q.country === x.id && q.sp).sort((a, b) => provDist(a.id, cap) - provDist(b.id, cap))[0]?.id;
       if (port !== undefined && f.navy) { p[port].ships = f.navy; p[port].port = 1; }
       if (START_MIL[WD.countries[x.id].a]) {
         // major powers have a few more air bases
@@ -548,19 +653,19 @@ function initialState() {
     return { gold: 60, alive: x.size > 0, capital: x.capital, wars: [], since: {}, allies: [], nukes: nk, prog: nk ? 0 : -1 };
   });
   const rel = W.nations.map(() => Math.round(Math.random() * 30 - 10));
-  return { v: 4, time: 0, day: 0, player: -1, truce: {}, asked: {}, retal: [], moves: [], fleets: [], nextMove: 1, ws: {}, hist: [], rel, autoPause: true, p, n };
+  return { v: 5, time: 0, day: 0, player: -1, truce: {}, asked: {}, retal: [], moves: [], units: [], nextMove: 1, ws: {}, hist: [], rel, autoPause: true, p, n };
 }
 function serialize() {
-  return { ...G, p: G.p.map(x => [x.owner, x.army, x.fgt, x.bmb, x.ships, x.eco, x.fort, x.rad, x.hit, x.sup, x.bar, x.apt, x.port]) };
+  return { ...G, p: G.p.map(x => [x.owner, x.army, x.fgt, x.bmb, x.ships, x.eco, x.fort, x.rad, x.hit, x.sup, x.bar, x.apt, x.port, x.mis]) };
 }
 function restore(s) {
-  if (!s || s.v !== 4) return false;
-  G = { ...s, retal: s.retal || [], asked: s.asked || {}, p: s.p.map(a => ({ owner: a[0], army: a[1], fgt: a[2], bmb: a[3], ships: a[4], eco: a[5], fort: a[6], rad: a[7], hit: a[8], sup: a[9], bar: a[10], apt: a[11], port: a[12] })) };
+  if (!s || s.v !== 5) return false;
+  G = { ...s, retal: s.retal || [], asked: s.asked || {}, p: s.p.map(a => ({ owner: a[0], army: a[1], fgt: a[2], bmb: a[3], ships: a[4], eco: a[5], fort: a[6], rad: a[7], hit: a[8], sup: a[9], bar: a[10], apt: a[11], port: a[12], mis: a[13] || 0 })), units: s.units || [] };
   ownVer++; bordersDirty = true; staticDirty = true;
   return true;
 }
 function save() { try { if (G && phase === 'play') localStorage.setItem(SAVE_KEY, JSON.stringify(serialize())); } catch (e) {} }
-function loadSaved() { try { const s = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null'); return s && s.v === 4 ? s : null; } catch (e) { return null; } }
+function loadSaved() { try { const s = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null'); return s && s.v === 5 ? s : null; } catch (e) { return null; } }
 function clearSaved() { try { localStorage.removeItem(SAVE_KEY); } catch (e) {} }
 
 // ownership lists, cached until a province changes hands
@@ -577,21 +682,21 @@ const nat = i => W.nations[i];
 const fullName = i => nat(i).place;
 const pname = i => W.provs[i].name;
 function forcesOf(n) {
-  const f = { army: 0, fgt: 0, bmb: 0, ships: 0 };
-  for (const i of provsOf(n)) { const P = G.p[i]; f.army += P.army; f.fgt += P.fgt; f.bmb += P.bmb; f.ships += P.ships; }
+  const f = { army: 0, fgt: 0, bmb: 0, ships: 0, mis: 0 };
+  for (const i of provsOf(n)) { const P = G.p[i]; f.army += P.army; f.fgt += P.fgt; f.bmb += P.bmb; f.ships += P.ships; f.mis += P.mis; }
   for (const m of G.moves) if (m.owner === n) { f.army += m.amount || 0; f.fgt += m.fgt || 0; f.bmb += m.bmb || 0; f.ships += m.ships || 0; }
-  for (const fl of G.fleets) if (fl.owner === n) f.ships += fl.ships;
+  for (const u of G.units) if (u.owner === n) { if (u.kind === 'army') f.army += u.n; else f.ships += u.n; }
   return f;
 }
 // one number for military strength: soldiers, with planes and ships counted as their weight in soldiers
-const power = f => f.army + f.fgt * 600 + f.bmb * 700 + f.ships * 800;
+const power = f => f.army + f.fgt * 600 + f.bmb * 700 + f.ships * 800 + (f.mis || 0) * 500;
 const armyOf = n => power(forcesOf(n));
 const atWar = (a, b) => G.n[a].wars.includes(b);
 const allied = (a, b) => G.n[a].allies.includes(b);
 const tkey = (a, b) => a < b ? a + '-' + b : b + '-' + a;
 const truceLeft = (a, b) => Math.max(0, (G.truce[tkey(a, b)] || 0) - G.day);
 const radLeft = i => Math.max(0, G.p[i].rad - G.day);
-const blockaded = i => G.fleets.some(f => f.prov === i && atWar(f.owner, G.p[i].owner));
+const blockaded = i => !!W.provs[i].sp && G.units.some(u => u.kind === 'fleet' && atWar(u.owner, G.p[i].owner) && ptDist([u.x, u.y], W.provs[i].sp) < 55);
 function provIncome(i) {
   if (radLeft(i)) return 0;
   const base = 2 + G.p[i].eco * 2 + (G.n[G.p[i].owner].capital === i ? 6 : 0);
@@ -605,7 +710,7 @@ function income(n) {
   return { inc, upkeep: army + air + navy, army, air, navy, net: inc - army - air - navy };
 }
 const recentlyBombed = i => G.p[i].hit >= 0 && G.day - G.p[i].hit < 6;
-const defense = i => G.p[i].army * (1.25 + 0.15 * G.p[i].fort) * (recentlyBombed(i) ? 0.75 : 1);
+const defense = i => (G.p[i].army * (1.25 + 0.15 * G.p[i].fort) + unitsIn(i, G.p[i].owner).reduce((s, u) => s + u.n, 0) * (1.1 + 0.1 * G.p[i].fort)) * (recentlyBombed(i) ? 0.75 : 1);
 const ecoCost = i => 25 * G.p[i].eco;
 const fortCost = i => 40 * (G.p[i].fort + 1);
 function neighborNations(n) {
@@ -685,12 +790,16 @@ function provDist(a, b) {
   let dx = Math.abs(p[0] - q[0]); dx = Math.min(dx, MW - dx);
   return Math.hypot(dx, p[1] - q[1]);
 }
+function ptDist(p, q) { let dx = Math.abs(p[0] - q[0]); dx = Math.min(dx, MW - dx); return Math.hypot(dx, p[1] - q[1]); }
 const isRoute = (a, b) => W.routeSet.has(a < b ? a + '-' + b : b + '-' + a);
+const fleetsOf = o => G.units.filter(u => u.kind === 'fleet' && (o === undefined || u.owner === o));
+// enemy warships close to a province's coast
+const enemyFleetNear = (prov, owner, r = 60) => W.provs[prov].coastal && G.units.some(u => u.kind === 'fleet' && atWar(u.owner, owner) && ptDist([u.x, u.y], W.provs[prov].sp || W.provs[prov].c) < r);
 // an enemy fleet at either end of a sea crossing stops troops from crossing
-const routeBlocked = (owner, a, b) => G.fleets.some(f => (f.prov === a || f.prov === b) && atWar(f.owner, owner));
+const routeBlocked = (owner, a, b) => enemyFleetNear(a, owner) || enemyFleetNear(b, owner);
 // land path: through own and allied land (and open sea crossings); the last hop may enter `to`
 function findPath(owner, from, to) {
-  if (from === to) return null;
+  if (from === to) return [from];
   const passable = i => { const o = G.p[i].owner; return o === owner || allied(owner, o); };
   const prev = new Map([[from, -1]]);
   const q = [from];
@@ -709,131 +818,170 @@ function findPath(owner, from, to) {
   }
   return null;
 }
-// landing from the sea: march to one of your ports, then sail to the target's coast
-function findLanding(owner, from, to) {
-  if (!W.provs[to].coastal || G.fleets.some(f => f.prov === to && atWar(f.owner, owner))) return null;
+// a land path given as points: from a start point through province centres to an exact end point
+function landPoints(path, start, end) {
+  const pts = path.map(i => W.provs[i].c.slice());
+  if (start) pts[0] = start.slice();
+  if (end) { if (path.length === 1) pts.push(end.slice()); else pts[pts.length - 1] = end.slice(); }
+  return pts;
+}
+// landing from the sea: march to one of your ports, sail, and land at `end` in province `to`
+function findLanding(owner, from, to, start, end) {
+  if (!W.provs[to].coastal || enemyFleetNear(to, owner, 45)) return null;
   const passable = i => { const o = G.p[i].owner; return o === owner || allied(owner, o); };
   const prev = new Map([[from, -1]]), q = [from];
   let best = null, bestLen = Infinity;
-  for (let k = 0; k < q.length; k++) {
+  for (let k = 0; k < q.length && k < 400; k++) {
     const a = q[k];
-    if (G.p[a].owner === owner && G.p[a].port) {
-      const sea = findSeaPath(a, to);
+    if (G.p[a].owner === owner && G.p[a].port && W.provs[a].sp) {
+      const sea = seaRoute(W.provs[a].sp, W.provs[to].sp);
       if (sea) {
         const land = [];
         for (let x = a; x !== -1; x = prev.get(x)) land.unshift(x);
-        const len = land.length + sea.length * 1.5;
-        if (len < bestLen) { bestLen = len; best = land.concat(sea.slice(1)); }
+        const lp = landPoints(land, start, null);
+        const pts = lp.concat(sea, [end.slice()]);
+        let len = 0; for (let j = 1; j < pts.length; j++) len += ptDist(pts[j - 1], pts[j]);
+        if (len < bestLen) { bestLen = len; best = { pts, seaFrom: lp.length }; }
       }
     }
     for (const b of W.provs[a].nb) if (!prev.has(b) && passable(b) && !(isRoute(a, b) && routeBlocked(owner, a, b))) { prev.set(b, a); q.push(b); }
   }
   return best;
 }
-// sea path: hops between coastal provinces along the sea lanes
-function findSeaPath(from, to) {
-  if (from === to || !W.provs[from].coastal || !W.provs[to].coastal) return null;
-  const prev = new Map([[from, -1]]), q = [from];
-  for (let k = 0; k < q.length; k++) {
-    const a = q[k];
-    for (const b of W.navNb[a]) {
-      if (prev.has(b)) continue;
-      prev.set(b, a);
-      if (b === to) { const path = [to]; for (let x = a; x !== -1; x = prev.get(x)) path.unshift(x); return path; }
-      q.push(b);
-    }
+// timing along a list of points; `seaFrom` marks where a land army boards ships
+function dispatch(owner, type, pts, load, seaFrom = Infinity) {
+  const tl = [0];
+  for (let k = 1; k < pts.length; k++) {
+    let v = type === 'air' || type === 'missile' ? (type === 'air' ? AIR_SPEED : MISSILE_SPEED) : type === 'sea' ? SEA_SPEED : LAND_SPEED;
+    if (type === 'land' && k >= seaFrom) v = SEA_SPEED * 0.7;
+    tl.push(tl[k - 1] + ptDist(pts[k - 1], pts[k]) / v);
   }
-  return null;
-}
-// cumulative travel time per leg: own ground is quicker, sea crossings slower
-function legTimes(type, owner, path) {
-  const t = [0];
-  for (let k = 1; k < path.length; k++) {
-    const a = path[k - 1], b = path[k], d = provDist(a, b);
-    let v = type === 'air' ? AIR_SPEED : type === 'sea' ? SEA_SPEED : LAND_SPEED;
-    if (type === 'land') {
-      const friendly = o => o === owner || allied(owner, o);
-      if (isRoute(a, b)) v *= 0.6;
-      else if (!W.provs[a].nb.includes(b)) v = SEA_SPEED * 0.7;   // aboard ships
-      else if (friendly(G.p[a].owner) && friendly(G.p[b].owner)) v *= 1.3;
-    }
-    t.push(t[k - 1] + d / v);
-  }
-  return t;
-}
-function dispatch(owner, type, path, load) {
-  const tl = legTimes(type, owner, path), dur = Math.max(type === 'air' ? 0.4 : 1, tl[tl.length - 1]);
-  const m = { id: G.nextMove++, owner, type, path, tl: tl.map(x => x / (tl[tl.length - 1] || 1)), dep: G.time, arr: G.time + dur, ...load };
+  const total = tl[tl.length - 1] || 0.01;
+  const dur = Math.max(type === 'missile' ? 0.15 : type === 'air' ? 0.3 : 0.5, total);
+  const m = { id: G.nextMove++, owner, type, pts, tl: tl.map(x => x / total), dep: G.time, arr: G.time + dur, ...load };
   G.moves.push(m);
-  const to = path[path.length - 1], o = G.p[to].owner;
-  if (o === G.player && owner !== G.player && atWar(owner, o)) warnIncoming(m, to);
+  if (G.player >= 0 && owner !== G.player && type !== 'air' && type !== 'missile') {
+    const t = provAtMap(pts[pts.length - 1][0], pts[pts.length - 1][1]);
+    if (t >= 0 && G.p[t].owner === G.player && atWar(owner, G.player)) warnIncoming(m, t);
+  }
   return m;
 }
-function sendArmy(owner, path, amount, amph) {
-  const from = path[0];
-  amount = Math.min(Math.round(amount / 10) * 10, G.p[from].army);
+function moveTarget(m) { const p = m.pts[m.pts.length - 1]; return provAtMap(p[0], p[1]); }
+// a land army leaves a province garrison (or a unit on the map) for an exact point
+function sendArmy(owner, src, end, amount, opts = {}) {
+  const from = src.unit ? src.unit.prov : src.prov;
+  const to = provAtMap(end[0], end[1]);
+  if (to < 0) return null;
+  const pool = src.unit ? src.unit.n : G.p[from].army;
+  amount = Math.min(Math.round(amount / 10) * 10, pool);
   if (amount <= 0) return null;
-  G.p[from].army -= amount;
-  let len = 0;
-  for (let k = 1; k < path.length; k++) len += provDist(path[k - 1], path[k]);
+  let pts, seaFrom = Infinity, amph = false;
+  const path = findPath(owner, from, to);
+  const startPt = src.unit ? [src.unit.x, src.unit.y] : null;
+  if (path) pts = landPoints(path, startPt, end);
+  else if (opts.allowLanding !== false) {
+    const L = findLanding(owner, from, to, startPt || W.provs[from].c, end);
+    if (!L) return null;
+    pts = L.pts; seaFrom = L.seaFrom; amph = true;
+  } else return null;
+  if (src.unit) { src.unit.n -= amount; if (src.unit.n <= 0) G.units = G.units.filter(u => u !== src.unit); }
+  else G.p[from].army -= amount;
+  let len = 0; for (let k = 1; k < pts.length; k++) len += ptDist(pts[k - 1], pts[k]);
   // long marches tire the troops: up to -30% attack strength
   const morale = Math.max(0.7, Math.min(1, 1 - Math.max(0, len - 150) / 1200));
-  return dispatch(owner, 'land', path, { amount, morale, amph: !!amph });
+  return dispatch(owner, 'land', pts, { amount, morale, amph, merge: !!opts.merge }, seaFrom);
 }
-function sendAir(owner, from, to, fgt, bmb, mission) {
+function sendAir(owner, from, target, fgt, bmb, mission, tgtUnit) {
   const P = G.p[from];
   fgt = Math.min(fgt, P.fgt); bmb = Math.min(bmb, P.bmb);
   if (fgt + bmb <= 0) return null;
   P.fgt -= fgt; P.bmb -= bmb;
-  return dispatch(owner, 'air', [from, to], { fgt, bmb, mission, home: from });
+  const end = tgtUnit ? [tgtUnit.x, tgtUnit.y] : W.provs[target].c.slice();
+  return dispatch(owner, 'air', [W.provs[from].c.slice(), end], { fgt, bmb, mission, home: from, target, tgtUnit: tgtUnit ? tgtUnit.id : 0 });
 }
-function sendFleet(owner, path, ships, mission, fromFleet) {
-  const from = path[0];
-  if (!fromFleet) { ships = Math.min(ships, G.p[from].ships); if (ships <= 0) return null; G.p[from].ships -= ships; }
-  return dispatch(owner, 'sea', path, { ships, mission });
+// fleets sail on the water grid from point to point
+function sendFleet(owner, src, end, ships, opts = {}) {
+  const start = src.unit ? [src.unit.x, src.unit.y] : W.provs[src.prov].sp;
+  if (!start) return null;
+  const route = seaRoute(start, end);
+  if (!route) return null;
+  if (src.unit) { ships = Math.min(ships, src.unit.n); src.unit.n -= ships; if (src.unit.n <= 0) G.units = G.units.filter(u => u !== src.unit); }
+  else { ships = Math.min(ships, G.p[src.prov].ships); if (ships <= 0) return null; G.p[src.prov].ships -= ships; }
+  if (ships <= 0) return null;
+  return dispatch(owner, 'sea', [start, ...route, end.slice()], { ships, dock: opts.dock ?? -1 });
+}
+function fireMissile(owner, from, target, tgtUnit) {
+  if (G.p[from].mis <= 0) return null;
+  G.p[from].mis--;
+  const end = tgtUnit ? [tgtUnit.x, tgtUnit.y] : W.provs[target].c.slice();
+  return dispatch(owner, 'missile', [W.provs[from].c.slice(), end], { target, tgtUnit: tgtUnit ? tgtUnit.id : 0 });
 }
 function movePos(m, time) {
   const f = Math.max(0, Math.min(1, (time - m.dep) / (m.arr - m.dep)));
   let k = 0;
   while (k < m.tl.length - 2 && m.tl[k + 1] < f) k++;
-  const a = W.provs[m.path[k]].c, b = W.provs[m.path[k + 1]].c;
+  const a = m.pts[k], b = m.pts[k + 1] || a;
   const t = (f - m.tl[k]) / ((m.tl[k + 1] - m.tl[k]) || 1);
   let bx = b[0];
   if (Math.abs(bx - a[0]) > MW / 2) bx += bx > a[0] ? -MW : MW;
   let x = a[0] + (bx - a[0]) * t;
+  const ang = Math.atan2(b[1] - a[1], bx - a[0]);
   if (x < 0) x += MW; else if (x > MW) x -= MW;
-  return { x, y: a[1] + (b[1] - a[1]) * t, k };
+  return { x, y: a[1] + (b[1] - a[1]) * t, k, ang };
 }
+
+// ---------- units standing on the map ----------
+function unitsIn(prov, owner) { return G.units.filter(u => u.kind === 'army' && u.prov === prov && (owner === undefined || u.owner === owner)); }
+function station(owner, kind, n, x, y) {
+  const prov = kind === 'army' ? provAtMap(x, y) : -1;
+  const near = G.units.find(u => u.owner === owner && u.kind === kind && ptDist([u.x, u.y], [x, y]) < 14);
+  if (near) { near.n += n; return near; }
+  const u = { id: G.nextMove++, owner, kind, n, x, y, prov };
+  G.units.push(u);
+  return u;
+}
+const unitById = id => G.units.find(u => u.id === id);
+
+// ---------- arrivals ----------
 function resolveMove(m) {
   if (!G.n[m.owner].alive) return;
   if (m.type === 'air') return resolveAir(m);
   if (m.type === 'sea') return resolveSea(m);
-  const to = m.path[m.path.length - 1], back = m.path[m.path.length - 2], o = G.p[to].owner, me = m.owner;
-  if (o === me) { G.p[to].army += m.amount; return; }
+  if (m.type === 'missile') return resolveMissile(m);
+  const end = m.pts[m.pts.length - 1], to = provAtMap(end[0], end[1]), me = m.owner;
+  if (to < 0) return;
+  const o = G.p[to].owner;
+  const stay = n => { if (m.merge || me !== G.player) { if (G.p[to].owner === me) G.p[to].army += n; else station(me, 'army', n, end[0], end[1]); } else station(me, 'army', n, end[0], end[1]); };
+  if (o === me || allied(me, o)) { stay(m.amount); return; }
   if (atWar(me, o)) {
-    const support = G.fleets.some(f => f.prov === to && f.owner === me) ? 1.2 : m.amph ? 0.85 : 1;
-    const defender = o, res = fight(back, to, m.amount, G.p[to].army, me, m.morale * support);
+    const support = G.units.some(u => u.kind === 'fleet' && u.owner === me && W.provs[to].sp && ptDist([u.x, u.y], W.provs[to].sp) < 60) ? 1.2 : m.amph ? 0.85 : 1;
+    const back = m.pts[Math.max(0, m.pts.length - 2)];
+    const res = fight(to, m.amount, me, m.morale * support);
     burst(to, res.win);
-    if (defender === G.player && !res.win) news(`Attacco di ${fullName(me)} respinto a ${pname(to)}.`, 'good', to);
+    if (res.win) stay(res.left);
+    else if (res.left > 0) { const bp = provAtMap(back[0], back[1]); if (bp >= 0 && (G.p[bp].owner === me || allied(me, G.p[bp].owner))) { if (me === G.player) station(me, 'army', res.left, back[0], back[1]); else G.p[bp].army += res.left; } }
+    if (o === G.player && !res.win) news(`Attacco di ${fullName(me)} respinto a ${pname(to)}.`, 'good', to);
     if (me === G.player && !res.win) news(`Attacco respinto a ${pname(to)}: persi ${fmt(res.lossA)} soldati.`, 'bad', to);
     return;
   }
-  const home = G.p[back].owner === me ? back : G.p[m.path[0]].owner === me ? m.path[0] : -1;
-  if (home >= 0) G.p[home].army += m.amount;
+  // the war ended on the way: they stay where they arrived
+  station(me, 'army', m.amount, end[0], end[1]);
 }
 function airHome(m) {
-  if (G.p[m.home].owner === m.owner && G.p[m.home].apt) return m.home;
+  if (G.p[m.home].owner === m.owner) return m.home;
   let best = G.n[m.owner].capital, bd = Infinity;
-  for (const i of provsOf(m.owner)) if (G.p[i].apt) { const d = provDist(i, m.path[1]); if (d < bd) { bd = d; best = i; } }
+  for (const i of provsOf(m.owner)) if (G.p[i].apt) { const d = provDist(i, m.home); if (d < bd) { bd = d; best = i; } }
   return best;
 }
 function resolveAir(m) {
-  const to = m.path[1], P = G.p[to], o = P.owner, me = m.owner;
-  if (m.mission === 'rebase' || o === me) { P.fgt += m.fgt; P.bmb += m.bmb; return; }
+  const me = m.owner;
+  if (m.mission === 'rebase') { const P = G.p[m.target]; if (P.owner === me) { P.fgt += m.fgt; P.bmb += m.bmb; } else sendBack(m); return; }
+  const unit = m.tgtUnit ? unitById(m.tgtUnit) : null;
+  const to = m.target, P = G.p[to], o = unit ? unit.owner : P.owner;
   if (!atWar(me, o)) { sendBack(m); return; }
-  // air battle against the fighters based there
+  // air battle against the fighters based at the target province
   let fgt = m.fgt, bmb = m.bmb;
-  const def = P.fgt;
+  const def = unit ? 0 : P.fgt;
   if (def > 0) {
     const att = fgt * 1 + bmb * 0.3, dv = def * 1.1 * (0.85 + Math.random() * 0.3);
     const lossA = Math.round((fgt + bmb) * Math.min(0.6, 0.25 * dv / Math.max(0.1, att)));
@@ -841,20 +989,26 @@ function resolveAir(m) {
     const lf = Math.min(fgt, Math.ceil(lossA * 0.6)); fgt -= lf; bmb = Math.max(0, bmb - (lossA - lf));
     P.fgt = Math.max(0, def - lossD);
   }
-  let killed = 0;
+  let killed = 0, what = '';
+  const power = (bmb * 150 + fgt * 25) * (0.7 + Math.random() * 0.6);
   if (bmb + fgt > 0) {
-    killed = Math.min(Math.round(P.army * 0.6), Math.round((bmb * 150 + fgt * 25) * (0.7 + Math.random() * 0.6) / 10) * 10);
-    P.army -= killed;
-    if (bmb >= 3 && Math.random() < 0.5) P.fort = Math.max(0, P.fort - 1);
-    if (Math.random() < bmb * 0.04) P.eco = Math.max(1, P.eco - 1);
-    // ships in port are hit too
-    if (P.ships && bmb) P.ships = Math.max(0, P.ships - Math.round(bmb * 0.3 * Math.random()));
-    P.hit = G.day;
-    addKia(me, o, o, killed);
+    if (unit && unit.kind === 'fleet') { killed = Math.min(unit.n, Math.round(bmb * 0.35 + Math.random())); unit.n -= killed; what = `${killed} navi`; addKia(me, o, o, killed * 800); }
+    else if (unit) { killed = Math.min(unit.n, Math.round(power / 10) * 10); unit.n -= killed; what = `${fmt(killed)} soldati`; addKia(me, o, o, killed); }
+    else {
+      killed = Math.min(Math.round(P.army * 0.6), Math.round(power / 10) * 10);
+      P.army -= killed;
+      if (bmb >= 3 && Math.random() < 0.5) P.fort = Math.max(0, P.fort - 1);
+      if (Math.random() < bmb * 0.04) P.eco = Math.max(1, P.eco - 1);
+      if (P.ships && bmb) P.ships = Math.max(0, P.ships - Math.round(bmb * 0.3 * Math.random()));
+      P.hit = G.day; what = `${fmt(killed)} soldati`;
+      addKia(me, o, o, killed);
+    }
+    G.units = G.units.filter(u => u.n > 0);
   }
-  airFx(to);
-  if (me === G.player) news(`Bombardamento su ${pname(to)}: ${fmt(killed)} soldati nemici colpiti. Rientrano ${fgt} caccia e ${bmb} bombardieri.`, killed ? 'good' : '', to);
-  else if (o === G.player) raiseAlert(`Bombardamento di ${fullName(me)} su ${pname(to)}: persi ${fmt(killed)} soldati.`, to, false);
+  airFx(m.pts[1]);
+  const where = unit ? (unit.kind === 'fleet' ? 'la flotta nemica' : `l'armata nemica`) : pname(to);
+  if (me === G.player) news(`Bombardamento su ${where}: colpiti ${what || 'nessun bersaglio'}. Rientrano ${fgt} caccia e ${bmb} bombardieri.`, killed ? 'good' : '', to);
+  else if (o === G.player) raiseAlert(`Bombardamento di ${fullName(me)} su ${unit ? 'una tua unità' : pname(to)}: persi ${what}.`, to, false);
   m.fgt = fgt; m.bmb = bmb;
   sendBack(m);
 }
@@ -862,69 +1016,79 @@ function sendBack(m) {
   if (m.fgt + m.bmb <= 0) return;
   const home = airHome(m);
   if (home < 0 || G.p[home].owner !== m.owner) return;
-  dispatch(m.owner, 'air', [m.path[1], home], { fgt: m.fgt, bmb: m.bmb, mission: 'rebase', home });
+  dispatch(m.owner, 'air', [m.pts[m.pts.length - 1], W.provs[home].c.slice()], { fgt: m.fgt, bmb: m.bmb, mission: 'rebase', home, target: home });
 }
-function navalBattle(attOwner, ships, prov) {
-  // defenders: ships in the port if its owner is at war with us, plus enemy fleets stationed there
-  const P = G.p[prov], foes = [];
-  if (P.owner !== attOwner && atWar(attOwner, P.owner) && P.ships) foes.push({ port: true, owner: P.owner, ships: P.ships });
-  for (const f of G.fleets) if (f.prov === prov && atWar(attOwner, f.owner)) foes.push(f);
-  const def = foes.reduce((s, f) => s + f.ships, 0);
-  if (!def) return { win: true, left: ships };
+function resolveMissile(m) {
+  const me = m.owner, unit = m.tgtUnit ? unitById(m.tgtUnit) : null, P = G.p[m.target];
+  const o = unit ? unit.owner : P.owner;
+  let what;
+  if (unit && unit.kind === 'fleet') { const k = Math.min(unit.n, 1 + (Math.random() < 0.4 ? 1 : 0)); unit.n -= k; what = `${k} ${k === 1 ? 'nave' : 'navi'}`; addKia(me, o, o, k * 800); }
+  else if (unit) { const k = Math.min(unit.n, Math.round((500 + Math.random() * 500) / 10) * 10); unit.n -= k; what = `${fmt(k)} soldati`; addKia(me, o, o, k); }
+  else {
+    const k = Math.min(P.army, Math.round((500 + Math.random() * 500) / 10) * 10);
+    P.army -= k; what = `${fmt(k)} soldati`; addKia(me, o, o, k);
+    if (P.fgt + P.bmb && Math.random() < 0.35) { if (P.bmb) P.bmb--; else P.fgt--; what += ', un aereo a terra'; }
+    if (P.ships && Math.random() < 0.3) { P.ships--; what += ', una nave in porto'; }
+    P.hit = G.day;
+  }
+  G.units = G.units.filter(u => u.n > 0);
+  missileFx(m.pts[1]);
+  if (me === G.player) news(`Missile a segno su ${unit ? 'unità nemica' : pname(m.target)}: ${what}.`, 'good', m.target);
+  else if (o === G.player) raiseAlert(`Missile di ${fullName(me)} su ${unit ? 'una tua unità' : pname(m.target)}: ${what}.`, m.target, false);
+}
+// naval battle at a point: against enemy fleets nearby and enemy ships in a nearby port
+function navalBattle(me, ships, pt) {
+  const foes = G.units.filter(u => u.kind === 'fleet' && atWar(me, u.owner) && ptDist([u.x, u.y], pt) < 40);
+  const ports = [];
+  for (let i = 0; i < W.provs.length; i++) { const P = G.p[i]; if (P.ships && W.provs[i].sp && atWar(me, P.owner) && ptDist(W.provs[i].sp, pt) < 40) ports.push(i); }
+  const def = foes.reduce((s, f) => s + f.n, 0) + ports.reduce((s, i) => s + G.p[i].ships, 0);
+  if (!def) return null;
   const a = ships * (0.85 + Math.random() * 0.3), d = def * 1.1 * (0.85 + Math.random() * 0.3);
   const win = a > d;
   const left = win ? Math.max(1, Math.round(ships * (1 - 0.6 * d / a))) : Math.round(ships * 0.3 * a / d);
-  const defLeftRatio = win ? 0 : Math.max(0, 1 - 0.6 * a / d);
-  for (const f of foes) {
-    const lost = f.ships - Math.round(f.ships * defLeftRatio);
-    addKia(attOwner, f.owner, f.owner, lost * 800);
-    if (f.port) P.ships = Math.round(P.ships * defLeftRatio); else f.ships = Math.round(f.ships * defLeftRatio);
-  }
-  G.fleets = G.fleets.filter(f => f.ships > 0);
-  addKia(attOwner, foes[0].owner, attOwner, (ships - left) * 800);
-  return { win, left };
+  const keep = win ? 0 : Math.max(0, 1 - 0.6 * a / d);
+  const foeOwner = foes[0] ? foes[0].owner : G.p[ports[0]].owner;
+  for (const f of foes) { addKia(me, f.owner, f.owner, (f.n - Math.round(f.n * keep)) * 800); f.n = Math.round(f.n * keep); }
+  for (const i of ports) { addKia(me, G.p[i].owner, G.p[i].owner, (G.p[i].ships - Math.round(G.p[i].ships * keep)) * 800); G.p[i].ships = Math.round(G.p[i].ships * keep); }
+  G.units = G.units.filter(u => u.n > 0);
+  addKia(me, foeOwner, me, (ships - left) * 800);
+  return { win, left, foe: foeOwner };
 }
 function resolveSea(m) {
-  const to = m.path[m.path.length - 1], P = G.p[to], me = m.owner;
-  const hostile = P.owner !== me && atWar(me, P.owner);
-  const enemyHere = G.fleets.some(f => f.prov === to && atWar(me, f.owner)) || (hostile && P.ships > 0);
+  const me = m.owner, end = m.pts[m.pts.length - 1];
   let ships = m.ships;
-  if (enemyHere) {
-    const r = navalBattle(me, ships, to);
-    seaFx(to, r.win);
-    if (me === G.player) news(r.win ? `Battaglia navale vinta a ${pname(to)}.` : `Flotta sconfitta a ${pname(to)}: rientrano ${r.left} navi.`, r.win ? 'good' : 'bad', to);
-    else if (P.owner === G.player || G.fleets.some(f => f.prov === to && f.owner === G.player)) news(r.win ? `La flotta di ${fullName(me)} ha vinto a ${pname(to)}.` : `Flotta di ${fullName(me)} respinta a ${pname(to)}.`, r.win ? 'bad' : 'good', to);
+  const r = navalBattle(me, ships, end);
+  if (r) {
+    seaFx(end, r.win);
+    if (me === G.player) news(r.win ? 'Battaglia navale vinta.' : `Flotta sconfitta: si ritirano ${r.left} navi.`, r.win ? 'good' : 'bad');
+    else if (r.foe === G.player) news(r.win ? `La flotta di ${fullName(me)} ha sconfitto le tue navi.` : `Flotta di ${fullName(me)} respinta.`, r.win ? 'bad' : 'good');
     ships = r.left;
-    if (!r.win) { fleetHome(me, to, ships); return; }
+    if (ships <= 0) return;
   }
-  if (P.owner === me) { P.ships += ships; P.port = P.port || 0; return; }
-  if (hostile) {
-    // the fleet stays off the coast: blockade, and support for landings
-    const f = G.fleets.find(f => f.prov === to && f.owner === me);
-    if (f) f.ships += ships; else G.fleets.push({ owner: me, prov: to, ships });
-    if (P.owner === G.player) raiseAlert(`${fullName(me)} blocca il porto di ${pname(to)}.`, to, false);
-    else if (me === G.player) news(`Blocco navale a ${pname(to)}: la sua rendita è dimezzata.`, 'good', to);
-    staticDirty = true;
-    return;
+  if (m.dock >= 0 && G.p[m.dock].owner === me) { G.p[m.dock].ships += ships; return; }
+  station(me, 'fleet', ships, end[0], end[1]);
+  const blk = coastNear(end, 55);
+  if (blk >= 0 && atWar(me, G.p[blk].owner)) {
+    if (G.p[blk].owner === G.player) raiseAlert(`${fullName(me)} blocca il porto di ${pname(blk)}.`, blk, false);
+    else if (me === G.player) news(`Blocco navale a ${pname(blk)}: la sua rendita è dimezzata.`, 'good', blk);
   }
-  fleetHome(me, to, ships);
+  staticDirty = true;
+}
+// the coastal province whose port is closest to a sea point
+function coastNear(pt, r) {
+  let best = -1, bd = r;
+  for (let i = 0; i < W.provs.length; i++) { const sp = W.provs[i].sp; if (!sp) continue; const d = ptDist(sp, pt); if (d < bd) { bd = d; best = i; } }
+  return best;
 }
 function homePort(owner, near) {
   let best = -1, bd = Infinity;
-  for (const i of provsOf(owner)) if (W.provs[i].coastal) { const d = provDist(i, near) + (G.p[i].port ? 0 : 5000); if (d < bd) { bd = d; best = i; } }
+  for (const i of provsOf(owner)) if (W.provs[i].sp) { const d = ptDist(W.provs[i].sp, near) + (G.p[i].port ? 0 : 5000); if (d < bd) { bd = d; best = i; } }
   return best;
 }
-function fleetHome(owner, from, ships) {
-  if (ships <= 0) return;
-  const port = homePort(owner, from);
+function recallFleet(u) {
+  const port = homePort(u.owner, [u.x, u.y]);
   if (port < 0) return;
-  const path = findSeaPath(from, port);
-  if (path) sendFleet(owner, path, ships, 'rebase', true);
-  else G.p[port].ships += ships;
-}
-function recallFleet(f) {
-  G.fleets = G.fleets.filter(x => x !== f);
-  fleetHome(f.owner, f.prov, f.ships);
+  if (!sendFleet(u.owner, { unit: u }, W.provs[port].sp, u.n, { dock: port })) { G.p[port].ships += u.n; G.units = G.units.filter(x => x !== u); }
   staticDirty = true;
 }
 function processMoves() {
@@ -935,22 +1099,25 @@ function processMoves() {
 }
 
 // ---------- battles and conquest ----------
-function fight(retreat, to, A, D, me, mult = 1) {
-  const o = G.p[to].owner;
-  if (D <= 0) { capture(to, me, A); return { win: true, lossA: 0, lossD: 0 }; }
+function fight(to, A, me, mult = 1) {
+  const o = G.p[to].owner, guards = unitsIn(to, o);
+  const D = G.p[to].army + guards.reduce((s, u) => s + u.n, 0);
+  if (D <= 0) { G.units = G.units.filter(u => !guards.includes(u)); capture(to, me, 0); return { win: true, left: A, lossA: 0, lossD: 0 }; }
   const atk = A * mult * (0.85 + Math.random() * 0.3), def = defense(to) * (0.85 + Math.random() * 0.3);
   if (atk > def) {
     const surv = Math.max(10, Math.round(A * (1 - 0.6 * def / atk) / 10) * 10);
     addKia(me, o, me, A - surv); addKia(me, o, o, D);
-    capture(to, me, surv);
-    return { win: true, lossA: A - surv, lossD: D };
+    G.units = G.units.filter(u => !guards.includes(u));
+    capture(to, me, 0);
+    return { win: true, left: surv, lossA: A - surv, lossD: D };
   }
-  const survD = Math.max(0, Math.round(D * (1 - 0.6 * atk / def) / 10) * 10);
-  G.p[to].army = survD;
+  const keep = Math.max(0, 1 - 0.6 * atk / def);
+  G.p[to].army = Math.round(G.p[to].army * keep / 10) * 10;
+  for (const u of guards) u.n = Math.round(u.n * keep / 10) * 10;
+  G.units = G.units.filter(u => u.n > 0);
   const back = Math.round(A * 0.25 * atk / def / 10) * 10;
-  if (retreat >= 0 && G.p[retreat].owner === me) G.p[retreat].army += back;
-  addKia(me, o, me, A - back); addKia(me, o, o, D - survD);
-  return { win: false, lossA: A - back, lossD: D - survD };
+  addKia(me, o, me, A - back); addKia(me, o, o, Math.round(D * (1 - keep)));
+  return { win: false, left: back, lossA: A - back, lossD: Math.round(D * (1 - keep)) };
 }
 function capture(i, newOwner, army) {
   const p = G.p[i], old = p.owner;
@@ -959,8 +1126,7 @@ function capture(i, newOwner, army) {
   p.eco = Math.max(1, p.eco - 1); p.fort = Math.max(0, p.fort - 1);
   // planes on the ground and ships in port are captured or scuttled
   p.fgt = 0; p.bmb = 0; p.ships = 0;
-  for (const f of G.fleets.filter(f => f.prov === i && f.owner === newOwner)) { p.ships += f.ships; f.ships = 0; }
-  G.fleets = G.fleets.filter(f => f.ships > 0);
+  G.units = G.units.filter(u => !(u.kind === 'army' && u.prov === i && u.owner === old));
   ownVer++; bordersDirty = true; staticDirty = true;
   if (newOwner === G.player) { conquestFx(i, 'win'); announce('win', pname(i), i); relAdd(old, -3); }
   else if (old === G.player) { conquestFx(i, 'loss'); announce('loss', pname(i), i); }
@@ -976,7 +1142,7 @@ function capture(i, newOwner, army) {
     G.n[old].alive = false;
     for (const w of G.n[old].wars.slice()) makePeace(old, w);
     for (const x of G.n[old].allies.slice()) breakAlliance(old, x, true);
-    G.fleets = G.fleets.filter(f => f.owner !== old);
+    G.units = G.units.filter(u => u.owner !== old);
     G.moves = G.moves.filter(m => m.owner !== old);
     if (old !== G.player && (newOwner === G.player || nearPlayer(newOwner)))
       news(`${fullName(old)} è stato annesso da ${fullName(newOwner)}.`, newOwner === G.player ? 'good' : '', i);
@@ -995,6 +1161,7 @@ function updateSupply() {
       const o = G.p[b].owner;
       if ((o === n || allied(n, o)) && !(isRoute(q[k], b) && routeBlocked(n, q[k], b))) { ok.add(b); q.push(b); }
     }
+    for (const u of G.units) if (u.owner === n && u.kind === 'army' && u.prov >= 0 && !ok.has(u.prov)) u.n = Math.floor(u.n * 0.96);
     for (const i of provsOf(n)) {
       const sup = ok.has(i) ? 1 : 0;
       if (!sup) G.p[i].army = Math.floor(G.p[i].army * 0.96);
@@ -1019,10 +1186,10 @@ function launchNuke(att, target) {
   const P = G.p[target], victim = P.owner;
   addKia(att, victim, victim, P.army * 0.95);
   P.army = Math.round(P.army * 0.05 / 10) * 10;
-  P.eco = 1; P.fort = 0; P.rad = G.day + RAD_DAYS; P.fgt = 0; P.bmb = 0; P.ships = 0;
+  P.eco = 1; P.fort = 0; P.rad = G.day + RAD_DAYS; P.fgt = 0; P.bmb = 0; P.ships = 0; P.mis = 0;
   for (const j of W.provs[target].landNb) G.p[j].army = Math.round(G.p[j].army * 0.7 / 10) * 10;
   G.moves = G.moves.filter(m => { const pos = movePos(m, G.time); return Math.hypot(pos.x - W.provs[target].c[0], pos.y - W.provs[target].c[1]) > 40; });
-  G.fleets = G.fleets.filter(f => f.prov !== target);
+  G.units = G.units.filter(u => ptDist([u.x, u.y], W.provs[target].c) > 45);
   if (victim !== att && G.n[victim].nukes > 0) G.retal.push([victim, att]);
   for (const m of neighborNations(att)) if (m !== G.player && m !== victim && !atWar(m, att) && !allied(m, att) && G.n[m].alive && Math.random() < 0.12) declareWar(m, att);
   if (att === G.player) { relAll(-35); relAdd(victim, -100); }
@@ -1087,14 +1254,14 @@ function aiTick(n) {
   }
 
   // military: attack weak enemy provinces next door
-  const marching = new Set(G.moves.filter(m => m.owner === n && m.type === 'land').map(m => m.path[m.path.length - 1]));
+  const marching = new Set(G.moves.filter(m => m.owner === n && m.type === 'land').map(moveTarget));
   const enemyNb = i => W.provs[i].nb.filter(j => atWar(n, G.p[j].owner) && !(isRoute(i, j) && routeBlocked(n, i, j)));
   for (const i of shuffle(provsOf(n).slice())) {
     if (G.p[i].owner !== n || G.p[i].army < 300) continue;
     const targets = enemyNb(i).filter(t => !marching.has(t)).sort((a, b) => defense(a) - defense(b));
     if (!targets.length) continue;
     const t = targets[0], send = G.p[i].army * 0.75;
-    if (send > defense(t) * 1.4 + 300) { sendArmy(n, [i, t], send); marching.add(t); }
+    if (send > defense(t) * 1.4 + 300 && sendArmy(n, { prov: i }, W.provs[t].c, send, { allowLanding: false })) marching.add(t);
   }
 
   // air and naval operations while at war
@@ -1110,15 +1277,20 @@ function aiTick(n) {
         }
         if (best >= 0) sendAir(n, i, best, Math.floor(P.fgt / 2), P.bmb, 'strike');
       }
-      if (P.ships >= 2 && W.provs[i].coastal && Math.random() < 0.3) {
-        let best = null;
+      if (P.ships >= 2 && W.provs[i].sp && Math.random() < 0.3) {
+        let best = -1, bd = 500;
         for (const w of me.wars) for (const t of provsOf(w)) {
-          if (!W.provs[t].coastal || provDist(i, t) > 500 || G.fleets.some(f => f.prov === t && f.owner === n)) continue;
-          if (G.p[t].ships > P.ships) continue;
-          const path = findSeaPath(i, t);
-          if (path && (!best || path.length < best.length)) best = path;
+          if (!W.provs[t].sp || G.p[t].ships > P.ships) continue;
+          if (G.units.some(u => u.kind === 'fleet' && u.owner === n && ptDist([u.x, u.y], W.provs[t].sp) < 60)) continue;
+          const d = provDist(i, t);
+          if (d < bd) { bd = d; best = t; }
         }
-        if (best) sendFleet(n, best, P.ships, 'station');
+        if (best >= 0) sendFleet(n, { prov: i }, W.provs[best].sp, P.ships);
+      }
+      if (P.mis > 0 && Math.random() < 0.5) {
+        let best = -1, bv = 300;
+        for (const w of me.wars) for (const t of provsOf(w)) { if (provDist(i, t) <= MISSILE_RANGE && G.p[t].army > bv) { bv = G.p[t].army; best = t; } }
+        if (best >= 0) fireMissile(n, i, best);
       }
     }
   }
@@ -1140,7 +1312,7 @@ function aiTick(n) {
     const d = dist.get(i);
     if (!d || G.p[i].army <= 600) continue;
     const step = W.provs[i].nb.find(j => G.p[j].owner === n && dist.get(j) === d - 1);
-    if (step !== undefined) sendArmy(n, [i, step], G.p[i].army - 300);
+    if (step !== undefined) sendArmy(n, { prov: i }, W.provs[step].c, G.p[i].army - 300, { merge: true, allowLanding: false });
   }
 
   // spend: soldiers where the threat is highest, some planes and ships at war, economy in peace
@@ -1151,6 +1323,8 @@ function aiTick(n) {
     if (apt !== undefined && Math.random() < 0.25) { me.gold -= FGT_COST; G.p[apt].fgt++; }
     if (apt !== undefined && Math.random() < 0.2 && me.gold > BMB_COST) { me.gold -= BMB_COST; G.p[apt].bmb++; }
     if (port !== undefined && Math.random() < 0.15 && me.gold > SHIP_COST) { me.gold -= SHIP_COST; G.p[port].ships++; }
+    const bar = owned.find(i => G.p[i].bar);
+    if (bar !== undefined && Math.random() < 0.12 && me.gold > MIS_COST + 60) { me.gold -= MIS_COST; G.p[bar].mis++; }
   }
   if (me.gold > 220 && Math.random() < 0.05) {
     const front = owned.filter(i => !G.p[i].bar && W.provs[i].nb.some(j => G.p[j].owner !== n));
@@ -1181,6 +1355,7 @@ function raiseAlert(msg, prov, important) {
   if (important && G.autoPause && phase === 'play' && speedIdx) { setSpeed(0); toast('Gioco in pausa per l\'allarme. Premi 1× per riprendere.'); }
 }
 function warnIncoming(m, to) {
+  if (to < 0) return;
   const key = to + ':' + m.type;
   if ((warned[key] || -99) > G.day - 3) return;
   warned[key] = G.day;
@@ -1206,7 +1381,20 @@ function dailyUpdate() {
   }
   for (const k in G.truce) if (G.truce[k] <= G.day) delete G.truce[k];
   // fleets go home when their war is over
-  for (const f of G.fleets.slice()) if (!G.n[f.owner].alive || !atWar(f.owner, G.p[f.prov].owner)) recallFleet(f);
+  for (const u of fleetsOf().slice()) {
+    if (u.owner === G.player || !G.units.includes(u)) continue;
+    const c = coastNear([u.x, u.y], 70);
+    if (c < 0 || !atWar(u.owner, G.p[c].owner)) { G.units = G.units.filter(x => x !== u); const port = homePort(u.owner, [u.x, u.y]); if (port >= 0) { G.units.push(u); recallFleet(u); } }
+  }
+  for (const u of fleetsOf().slice()) {
+    if (!G.units.includes(u)) continue;
+    if (G.units.some(v => v.kind === 'fleet' && atWar(u.owner, v.owner) && ptDist([u.x, u.y], [v.x, v.y]) < 30)) {
+      const ships = u.n; G.units = G.units.filter(x => x !== u);
+      const r = navalBattle(u.owner, ships, [u.x, u.y]);
+      if (r && r.left > 0) station(u.owner, 'fleet', r.left, u.x, u.y);
+      if (r) { seaFx([u.x, u.y], r.win); if (u.owner === G.player || r.foe === G.player) news(`Battaglia navale: ${(u.owner === G.player) === r.win ? 'vittoria' : 'sconfitta'} della tua flotta.`, (u.owner === G.player) === r.win ? 'good' : 'bad'); }
+    }
+  }
   if (G.day % 10 === 0) updateSupply();
   if (G.day % 30 === 0) for (let n = 0; n < G.rel.length; n++) G.rel[n] = Math.round((G.rel[n] || 0) * 0.95);
   if (G.day % 15 === 0 && G.player >= 0) {
@@ -1245,6 +1433,7 @@ function recruit(i, kind) {
   else if (kind === 'fgt' && P.apt && spend(FGT_COST)) P.fgt++;
   else if (kind === 'bmb' && P.apt && spend(BMB_COST)) P.bmb++;
   else if (kind === 'ship' && P.port && spend(SHIP_COST)) P.ships++;
+  else if (kind === 'mis' && P.bar && spend(MIS_COST)) P.mis++;
   afterAction();
 }
 function build(i, k) {
@@ -1258,43 +1447,58 @@ function fortify(i) { if (G.p[i].fort < 3 && spend(fortCost(i))) G.p[i].fort++; 
 function afterAction() { save(); updateHUD(); renderPanel(); if (dashOpen) renderDash(); staticDirty = true; requestRender(); }
 function moveAmount() { const el = document.getElementById('moveAmt'); return el ? +el.value : Infinity; }
 const daysWord = d => d + ' ' + (d === 1 ? 'giorno' : 'giorni');
-function orderMove(from, to) {
-  const me = G.player, o = G.p[to].owner;
-  if (moveMode === 'air') {
-    const P = G.p[from], d = provDist(from, to);
-    if (d > AIR_RANGE) { toast(`Fuori raggio: gli aerei arrivano fino a ${AIR_RANGE} km di mappa (${pname(to)} è a ${Math.round(d)}).`, 'bad'); return false; }
-    if (o === me) {
-      if (!G.p[to].apt) { toast(`${pname(to)} non ha un aeroporto: costruiscilo da Gestisci.`, 'bad'); return false; }
-      const m = sendAir(me, from, to, P.fgt, P.bmb, 'rebase'); if (m) toast(`Aerei trasferiti all'aeroporto di ${pname(to)}.`); afterAction(); return !!m;
+// orders: `src` is a province ({prov}) or a unit on the map ({unit}); `pt` is the exact map point tapped
+function orderMove(src, pt, tapUnit) {
+  const me = G.player, to = provAtMap(pt[0], pt[1]);
+  const from = src.unit ? src.unit.prov : src.prov;
+  if (moveMode === 'air' || moveMode === 'missile') {
+    const P = G.p[src.prov], range = moveMode === 'air' ? AIR_RANGE : MISSILE_RANGE;
+    const foe = tapUnit && atWar(me, tapUnit.owner) ? tapUnit : null;
+    if (!foe && to < 0) { toast('Tocca una provincia o un\'unità nemica.'); return false; }
+    if (moveMode === 'air' && !foe && G.p[to].owner === me) {
+      if (to === src.prov) return false;
+      const m = sendAir(me, src.prov, to, P.fgt, P.bmb, 'rebase');
+      if (m) toast(`${m.fgt + m.bmb} aerei in volo verso ${pname(to)}: arrivo in ${daysWord(Math.max(1, Math.round(m.arr - m.dep)))}.`);
+      afterAction(); return !!m;
     }
-    if (!atWar(me, o)) { toast(`Puoi bombardare solo paesi in guerra con te.`); return false; }
-    const m = sendAir(me, from, to, P.fgt, P.bmb, 'strike');
+    const o = foe ? foe.owner : G.p[to].owner;
+    if (!atWar(me, o)) { toast(`Puoi colpire solo paesi in guerra con te.`); return false; }
+    const d = ptDist(W.provs[src.prov].c, foe ? [foe.x, foe.y] : W.provs[to].c);
+    if (d > range) { toast(`Fuori portata: il bersaglio è a ${Math.round(d)}, il raggio è ${range}. Avvicina la base o scegli un bersaglio nel cerchio.`, 'bad'); return false; }
+    if (moveMode === 'missile') {
+      const m = fireMissile(me, src.prov, to, foe);
+      if (!m) { toast('Nessun missile rimasto in questa base.'); return false; }
+      toast(`Missile lanciato. Ne restano ${P.mis}.`, 'bad');
+      afterAction(); return 'keep';
+    }
+    const m = sendAir(me, src.prov, foe ? foe.prov : to, P.fgt, P.bmb, 'strike', foe);
     if (!m) { toast('Nessun aereo qui.'); return false; }
-    toast(`Missione aerea su ${pname(to)}: ${m.fgt} caccia e ${m.bmb} bombardieri in volo.`, 'bad');
+    toast(`Missione aerea: ${m.fgt} caccia e ${m.bmb} bombardieri in volo.`, 'bad');
     afterAction(); return true;
   }
   if (moveMode === 'sea') {
-    if (!W.provs[to].coastal) { toast(`${pname(to)} non ha coste: la flotta non può arrivarci.`, 'bad'); return false; }
-    if (o !== me && !atWar(me, o)) { toast(`La flotta può andare nei tuoi porti o sulle coste di un nemico in guerra.`); return false; }
-    if (o === me && !G.p[to].port) { toast(`${pname(to)} non ha un porto: costruiscilo da Gestisci.`, 'bad'); return false; }
-    const path = findSeaPath(from, to);
-    if (!path) { toast('Nessuna rotta navale fin lì.', 'bad'); return false; }
-    const m = sendFleet(me, path, G.p[from].ships, o === me ? 'rebase' : 'station');
-    if (!m) { toast('Nessuna nave qui.'); return false; }
-    toast(`${m.ships} navi in rotta verso ${pname(to)}: arrivo in ${daysWord(Math.max(1, Math.round(m.arr - m.dep)))}.`, o === me ? '' : 'bad');
+    const ships = src.unit ? src.unit.n : G.p[src.prov].ships;
+    let end = pt, dock = -1;
+    if (to >= 0) {
+      const sp = W.provs[to].sp;
+      if (!sp) { toast(`${pname(to)} è nell'entroterra: tocca il mare o una costa.`, 'bad'); return false; }
+      end = sp;
+      if (G.p[to].owner === me && G.p[to].port) dock = to;
+    } else if (!seaAt(pt[0], pt[1])) { toast('Tocca un punto sul mare.'); return false; }
+    const m = sendFleet(me, src, end, ships, { dock });
+    if (!m) { toast('Nessuna rotta navale fin lì.', 'bad'); return false; }
+    toast(`${m.ships} navi in navigazione: arrivo in ${daysWord(Math.max(1, Math.round(m.arr - m.dep)))}${dock >= 0 ? `, poi in porto a ${pname(dock)}` : ''}.`);
     afterAction(); return true;
   }
-  if (o !== me && !atWar(me, o)) {
-    toast(allied(me, o) ? `${pname(to)} è di un alleato: puoi solo attraversarla.` : `Sei in pace con ${fullName(o)}: dichiara guerra per attaccare.`);
-    return false;
-  }
-  let path = findPath(me, from, to), amph = false;
-  if (!path && o !== me) { path = findLanding(me, from, to); amph = !!path; }
-  if (!path) { toast(whyNoPath(from, to), 'bad'); return false; }
-  const m = sendArmy(me, path, Math.min(moveAmount(), G.p[from].army), amph);
-  if (!m) { toast('Nessuna truppa da inviare.'); return false; }
+  // land
+  if (to < 0) { toast('Le truppe di terra vanno sulla terraferma: tocca un punto sulla terra.'); return false; }
+  const o = G.p[to].owner;
+  if (o !== me && !allied(me, o) && !atWar(me, o)) { toast(`Sei in pace con ${fullName(o)}: dichiara guerra per entrare nel suo territorio.`); return false; }
+  const pool = src.unit ? src.unit.n : G.p[from].army;
+  const m = sendArmy(me, src, pt, Math.min(moveAmount(), pool));
+  if (!m) { toast(whyNoPath(from, to), 'bad'); return false; }
   const days = Math.max(1, Math.round(m.arr - m.dep));
-  toast(`${fmt(m.amount)} soldati ${amph ? 'imbarcati per uno sbarco a' : 'in marcia verso'} ${pname(to)}: arrivo in ${daysWord(days)}${o !== me && m.morale < 0.98 ? `, morale ${Math.round(m.morale * 100)}%` : ''}.`, o === me ? '' : 'bad');
+  toast(`${fmt(m.amount)} soldati ${m.amph ? 'imbarcati per uno sbarco a' : 'in marcia verso'} ${pname(to)}: arrivo in ${daysWord(days)}${o !== me && m.morale < 0.98 ? `, morale ${Math.round(m.morale * 100)}%` : ''}.`, atWar(me, o) ? 'bad' : '');
   afterAction();
   return true;
 }
@@ -1304,7 +1508,7 @@ function whyNoPath(from, to) {
   const between = new Set();
   for (const j of W.provs[to].nb) { const x = G.p[j].owner; if (x !== me && !allied(me, x) && x !== o) between.add(fullName(x)); }
   const lanes = [...between].slice(0, 3).join(', ');
-  if (G.fleets.some(f => f.prov === to && atWar(f.owner, me))) return `Una flotta nemica difende la costa di ${pname(to)}: sconfiggila prima con le tue navi.`;
+  if (enemyFleetNear(to, me, 45)) return `Una flotta nemica difende la costa di ${pname(to)}: sconfiggila prima con le tue navi.`;
   if (W.provs[to].coastal) {
     const ports = provsOf(me).filter(i => G.p[i].port);
     if (!ports.length) return `${pname(to)} non confina con il tuo territorio${lanes ? ` (in mezzo: ${lanes})` : ''}. Per uno sbarco dal mare costruisci un Porto sulla tua costa.`;
@@ -1596,8 +1800,9 @@ function conquestFx(i, kind) {
   if (kind === 'other' && anims.length > 100) return;
   anims.push({ kind: 'conquest', i, t0: performance.now(), dur: kind === 'other' ? 1400 : 2600, how: kind });
 }
-function airFx(i) { anims.push({ kind: 'burst', p: W.provs[i].c, t0: performance.now(), dur: 900, color: '#ffa64d' }); }
-function seaFx(i, win) { anims.push({ kind: 'burst', p: W.provs[i].c, t0: performance.now(), dur: 900, color: win ? '#7fb8ff' : '#ff4d5e' }); }
+function airFx(p) { anims.push({ kind: 'burst', p, t0: performance.now(), dur: 900, color: '#ffa64d' }); }
+function seaFx(p, win) { anims.push({ kind: 'burst', p, t0: performance.now(), dur: 900, color: win ? '#7fb8ff' : '#ff4d5e' }); }
+function missileFx(p) { anims.push({ kind: 'burst', p, t0: performance.now(), dur: 700, color: '#ffe08a' }); anims.push({ kind: 'burst', p, t0: performance.now() + 120, dur: 900, color: '#ff7a3d' }); }
 function nukeAnim(att, target) {
   const a = W.provs[G.n[att].capital]?.c || W.provs[provsOf(att)[0]].c, b = W.provs[target].c;
   anims.push({ kind: 'nuke', a, b, t0: performance.now(), dur: 1700, boom: 3400 });
@@ -1728,30 +1933,34 @@ function glowStroke(path, color, width, blur) {
 // what the selected province can reach in the current move mode
 let reachCache = null;
 function reachOf() {
-  if (phase !== 'play' || selected < 0 || !moveMode || G.p[selected].owner !== G.player) return null;
-  const key = selected + moveMode + ownVer + G.n[G.player].wars.join() + G.fleets.length;
+  const src = phase === 'play' && moveMode ? moveSource() : null;
+  if (!src) return null;
+  const from = src.unit ? src.unit.prov : src.prov;
+  const key = (src.unit ? 'u' + src.unit.id : from) + moveMode + ownVer + G.n[G.player].wars.join() + G.units.length;
   if (reachCache && reachCache.key === key) return reachCache;
   const me = G.player, own = new Set(), enemy = new Set();
-  if (moveMode === 'land') {
+  const origin = src.unit ? [src.unit.x, src.unit.y] : W.provs[from].c;
+  if (moveMode === 'land' && from >= 0) {
     const passable = i => { const o = G.p[i].owner; return o === me || allied(me, o); };
-    const seen = new Set([selected]), q = [selected];
+    const seen = new Set([from]), q = [from];
+    if (G.p[from].owner === me) own.add(from);
     for (let k = 0; k < q.length; k++) for (const b of W.provs[q[k]].nb) {
       if (seen.has(b) || (isRoute(q[k], b) && routeBlocked(me, q[k], b))) continue;
       seen.add(b);
       if (passable(b)) { q.push(b); if (G.p[b].owner === me) own.add(b); }
       else if (atWar(me, G.p[b].owner)) enemy.add(b);
     }
-    // coasts within reach of your ports, for landings
-    const ports = q.filter(i => G.p[i].owner === me && G.p[i].port);
-    if (ports.length) for (const w of G.n[me].wars) for (const t of provsOf(w)) if (!enemy.has(t) && W.provs[t].coastal && ports.some(p => provDist(p, t) < 700) && !G.fleets.some(f => f.prov === t && atWar(f.owner, me))) enemy.add(t);
-  } else if (moveMode === 'air') {
-    for (const i of provsOf(me)) if (G.p[i].apt && i !== selected && provDist(selected, i) <= AIR_RANGE) own.add(i);
-    for (const w of G.n[me].wars) for (const t of provsOf(w)) if (provDist(selected, t) <= AIR_RANGE) enemy.add(t);
-  } else {
-    for (const i of provsOf(me)) if (G.p[i].port && i !== selected) own.add(i);
-    for (const w of G.n[me].wars) for (const t of provsOf(w)) if (W.provs[t].coastal && provDist(selected, t) < 900) enemy.add(t);
+    const ports = q.filter(i => G.p[i].owner === me && G.p[i].port && W.provs[i].sp);
+    if (ports.length) for (const w of G.n[me].wars) for (const t of provsOf(w)) if (!enemy.has(t) && W.provs[t].sp && ports.some(p => provDist(p, t) < 700) && !enemyFleetNear(t, me, 45)) enemy.add(t);
+  } else if (moveMode === 'air' || moveMode === 'missile') {
+    const r = moveMode === 'air' ? AIR_RANGE : MISSILE_RANGE;
+    if (moveMode === 'air') for (const i of provsOf(me)) if (i !== from) own.add(i);
+    for (const w of G.n[me].wars) for (const t of provsOf(w)) if (ptDist(origin, W.provs[t].c) <= r) enemy.add(t);
+  } else if (moveMode === 'sea') {
+    for (const i of provsOf(me)) if (G.p[i].port && W.provs[i].sp) own.add(i);
+    for (const w of G.n[me].wars) for (const t of provsOf(w)) if (W.provs[t].sp && ptDist(origin, W.provs[t].sp) < 900) enemy.add(t);
   }
-  reachCache = { key, own, enemy };
+  reachCache = { key, own, enemy, origin };
   return reachCache;
 }
 function targetsOf() { return []; }
@@ -1850,10 +2059,10 @@ function drawMap() {
     for (const t of reach.enemy) glowStroke(W.provs[t].path, '#ff5d6c', 1.6 * px, 6);
   }
   if (selected >= 0 && phase === 'play') glowStroke(W.provs[selected].path, '#ffffff', 2.2 * px, 12);
-  if (reach && moveMode === 'air') {
-    const c = W.provs[selected].c;
-    ctx.setLineDash([6 * px, 6 * px]); ctx.strokeStyle = 'rgba(255, 200, 120, 0.9)'; ctx.lineWidth = 2 * px;
-    ctx.beginPath(); ctx.arc(c[0], c[1], AIR_RANGE, 0, 7); ctx.stroke(); ctx.setLineDash([]);
+  if (reach && (moveMode === 'air' || moveMode === 'missile')) {
+    const c = reach.origin;
+    ctx.setLineDash([6 * px, 6 * px]); ctx.strokeStyle = moveMode === 'air' ? 'rgba(255, 200, 120, 0.9)' : 'rgba(255, 120, 90, 0.95)'; ctx.lineWidth = 2 * px;
+    ctx.beginPath(); ctx.arc(c[0], c[1], moveMode === 'air' ? AIR_RANGE : MISSILE_RANGE, 0, 7); ctx.stroke(); ctx.setLineDash([]);
   }
 
   // country names
@@ -1887,20 +2096,22 @@ function renderStatic() {
 function drawOverlays(now) {
   const s = cam.s;
   ctx.setTransform(dpr, 0, 0, dpr, shake[0] * dpr, shake[1] * dpr);
-  const targets = targetsOf();
-  // army pills, by priority, without overlapping
+  // province garrisons, by priority, without overlapping
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   const cands = [];
   for (let i = 0; i < W.provs.length; i++) {
     const P = G.p[i], [mx, my] = W.provs[i].c;
     const x = mx * s + cam.x, y = my * s + cam.y;
-    if (x < -50 || y < -40 || x > vw + 50 || y > vh + 40) continue;
+    if (x < -80 || y < -80 || x > vw + 80 || y > vh + 80) continue;
     const mine = phase === 'play' && P.owner === G.player;
     const isCap = G.n[P.owner].capital === i;
-    const showArmy = P.army > 0 && (s > 1.6 || (mine && s > 0.3) || i === selected || targets.includes(i));
-    const pri = (i === selected ? 1e9 : 0) + (targets.includes(i) ? 1e8 : 0) + (isCap ? 1e7 : 0) + (mine ? 1e6 : 0) + P.army;
+    const showArmy = P.army > 0 && (s > 1.6 || (mine && s > 0.3) || i === selected);
+    const pri = (i === selected ? 1e9 : 0) + (isCap ? 1e7 : 0) + (mine ? 1e6 : 0) + P.army;
     cands.push({ i, x, y, mine, isCap, showArmy, pri });
   }
+  // the bases themselves, drawn as small installations
+  // your own bases always; enemy bases only when zoomed in on them
+  if (phase === 'play') for (const c of cands) if (c.mine ? s > 0.55 : s > 2.4 && atWar(G.player, G.p[c.i].owner)) drawBases(c.i, c.mine);
   cands.sort((a, b) => b.pri - a.pri);
   const placed = [];
   const free = (x0, y0, w, h) => !placed.some(r => x0 < r[0] + r[2] + 2 && x0 + w + 2 > r[0] && y0 < r[1] + r[3] + 2 && y0 + h + 2 > r[1]);
@@ -1909,15 +2120,7 @@ function drawOverlays(now) {
     if (c.showArmy) {
       ctx.font = '800 11px ' + FONT_BODY;
       const w = ctx.measureText(fmt(P.army)).width + 22 + (c.isCap ? 12 : 0);
-      if (free(c.x - w / 2, c.y - 10, w, 19)) {
-        placed.push([c.x - w / 2, c.y - 10, w, 19]); armyPill(c.x, c.y, P, c.mine, c.isCap);
-        if (c.mine ? s > 0.45 : s > 1.6) {
-          const known = c.mine || allied(G.player, P.owner) || atWar(G.player, P.owner);
-          const bb = baseBadges(c.x, c.y + 11, P, known);
-          if (bb && free(c.x - bb.w / 2, c.y + 11, bb.w, 16)) { placed.push([c.x - bb.w / 2, c.y + 11, bb.w, 16]); bb.draw(); }
-        }
-        continue;
-      }
+      if (free(c.x - w / 2, c.y - 10, w, 19)) { placed.push([c.x - w / 2, c.y - 10, w, 19]); armyPill(c.x, c.y, P, c.mine, c.isCap); continue; }
     }
     if (c.isCap && (s > 0.5 || c.mine) && free(c.x - 5, c.y - 5, 10, 10)) { placed.push([c.x - 5, c.y - 5, 10, 10]); capitalDot(c.x, c.y, markColor(P.owner)); }
   }
@@ -1934,69 +2137,204 @@ function drawOverlays(now) {
     }
     ctx.shadowBlur = 0; ctx.shadowColor = 'transparent';
   }
-  if (phase === 'play') { drawFleets(); drawMarches(now); }
+  if (phase === 'play') { drawUnits(); drawMarches(now); }
   drawEffects(now);
 }
-// fleets on station off enemy coasts
-function drawFleets() {
-  const s = cam.s;
-  for (const f of G.fleets) {
-    const c = W.provs[f.prov].c, x = c[0] * s + cam.x + 16, y = c[1] * s + cam.y + 14;
-    if (x < -30 || y < -30 || x > vw + 30 || y > vh + 30) continue;
-    const r = relation(f.owner), col = r === 'own' ? '#4da3ff' : r === 'war' ? '#ff4d5e' : r === 'ally' ? '#3ddc97' : '#e3e8f0';
-    ctx.save();
-    ctx.shadowColor = 'rgba(0,0,0,.5)'; ctx.shadowBlur = 6;
-    roundRect(x - 15, y - 9, 30, 18, 9); ctx.fillStyle = 'rgba(10, 14, 26, 0.92)'; ctx.fill();
-    ctx.shadowBlur = 0; ctx.strokeStyle = col; ctx.lineWidth = 1.5; ctx.stroke();
-    drawIcon('port', x - 7, y, 11, col);
-    ctx.font = '800 10.5px ' + FONT_BODY; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = col;
-    ctx.fillText(String(f.ships), x + 6, y + 0.5);
-    ctx.restore();
+const sideColor = n => { const r = relation(n); return r === 'own' ? '#4da3ff' : r === 'war' ? '#ff4d5e' : r === 'ally' ? '#3ddc97' : '#e3e8f0'; };
+const scr = p => [p[0] * cam.s + cam.x, p[1] * cam.s + cam.y];
+
+// ---------- installations: barracks, airfields, harbours ----------
+function drawBases(i, mine) {
+  const P = G.p[i], pr = W.provs[i], k = Math.max(0.7, Math.min(1.5, cam.s * 0.8));
+  const [cx, cy] = scr(pr.c), col = W.nations[P.owner].color;
+  if (P.bar) drawBarracks(cx - 24 * k, cy + 16 * k, k, col);
+  if (P.apt) drawAirfield(cx + 24 * k, cy + 15 * k, k, P.fgt + P.bmb);
+  if (P.port && pr.pp && pr.sp) {
+    const [px, py] = scr(pr.pp), [sx, sy] = scr(pr.sp);
+    drawHarbour(px, py, Math.atan2(sy - py, sx - px), k, P.ships);
   }
 }
-// armies in transit: the road still ahead, and a token with the troop count
+function drawBarracks(x, y, k, col) {
+  ctx.save(); ctx.translate(x, y); ctx.scale(k, k);
+  ctx.shadowColor = 'rgba(0,0,0,.55)'; ctx.shadowBlur = 4;
+  roundRect(-12, -7, 24, 14, 2); ctx.fillStyle = 'rgba(58, 64, 52, 0.95)'; ctx.fill();
+  ctx.shadowBlur = 0;
+  ctx.strokeStyle = 'rgba(210, 205, 185, 0.55)'; ctx.lineWidth = 0.8; ctx.stroke();
+  for (const bx of [-10, -2.5, 5]) {
+    ctx.fillStyle = '#d9d1b8'; ctx.fillRect(bx, -4.5, 6, 9);
+    ctx.fillStyle = '#8e8573'; ctx.fillRect(bx, -4.5, 6, 2);
+  }
+  ctx.strokeStyle = '#e8e8e8'; ctx.lineWidth = 0.9;
+  ctx.beginPath(); ctx.moveTo(-12, -7); ctx.lineTo(-12, -17); ctx.stroke();
+  ctx.fillStyle = col; ctx.fillRect(-12, -17, 8, 5);
+  ctx.restore();
+}
+function drawAirfield(x, y, k, planes) {
+  ctx.save(); ctx.translate(x, y); ctx.scale(k, k); ctx.rotate(-0.38);
+  ctx.shadowColor = 'rgba(0,0,0,.55)'; ctx.shadowBlur = 4;
+  roundRect(-18, -3.2, 36, 6.4, 1.5); ctx.fillStyle = '#3c414a'; ctx.fill();
+  ctx.shadowBlur = 0;
+  ctx.fillStyle = '#e9edf2';
+  for (let d = -14; d <= 12; d += 5) ctx.fillRect(d, -0.4, 2.6, 0.8);
+  ctx.fillRect(-17, -2.2, 1, 4.4); ctx.fillRect(16, -2.2, 1, 4.4);
+  ctx.fillStyle = '#5b616b'; ctx.fillRect(-9, 3.2, 15, 6);
+  ctx.fillStyle = '#d8dde4'; ctx.fillRect(7.5, 3.6, 3.5, 3.5);
+  ctx.fillStyle = '#7fb8ff'; ctx.fillRect(7.5, 3.6, 3.5, 1.2);
+  for (let j = 0; j < Math.min(3, planes); j++) drawPlane(-6 + j * 4.6, 6.2, -Math.PI / 2, 2.2, '#f2f4f7', true);
+  ctx.restore();
+}
+function drawHarbour(x, y, ang, k, ships) {
+  ctx.save(); ctx.translate(x, y); ctx.scale(k, k); ctx.rotate(ang);
+  ctx.shadowColor = 'rgba(0,0,0,.5)'; ctx.shadowBlur = 4;
+  ctx.fillStyle = '#6f757e'; ctx.fillRect(-7, -9, 7, 18);
+  ctx.shadowBlur = 0;
+  ctx.fillStyle = '#a3a9b2'; ctx.fillRect(0, -1.6, 14, 3.2); ctx.fillRect(0, -8, 9, 2.4);
+  ctx.strokeStyle = '#f2a33a'; ctx.lineWidth = 1.1;
+  ctx.beginPath(); ctx.moveTo(-3, 7); ctx.lineTo(-3, -1); ctx.lineTo(5, -4); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(5, -4); ctx.lineTo(5, -1); ctx.stroke();
+  ctx.fillStyle = '#c94b3c'; ctx.fillRect(-6, 2, 3, 2.4); ctx.fillStyle = '#3d7bd6'; ctx.fillRect(-6, 4.6, 3, 2.4);
+  const spots = [[7, 4.2], [7, -4.6], [14, -4.6]];
+  for (let j = 0; j < Math.min(3, ships); j++) drawShip(spots[j][0], spots[j][1], 0, 3.6, '#dfe6ee', true);
+  ctx.restore();
+}
+
+// ---------- silhouettes ----------
+function drawPlane(x, y, ang, s, color, flat) {
+  ctx.save(); ctx.translate(x, y); ctx.rotate(ang);
+  if (!flat) { ctx.shadowColor = 'rgba(0,0,0,.6)'; ctx.shadowBlur = 5; ctx.shadowOffsetY = 3; }
+  ctx.beginPath();
+  ctx.moveTo(s * 1.25, 0);
+  ctx.lineTo(s * 0.75, -s * 0.13); ctx.lineTo(s * 0.15, -s * 0.16);
+  ctx.lineTo(-s * 0.35, -s * 1.05); ctx.lineTo(-s * 0.6, -s * 1.05); ctx.lineTo(-s * 0.35, -s * 0.16);
+  ctx.lineTo(-s * 0.85, -s * 0.13); ctx.lineTo(-s * 1.15, -s * 0.5); ctx.lineTo(-s * 1.3, -s * 0.5); ctx.lineTo(-s * 1.15, 0);
+  ctx.lineTo(-s * 1.3, s * 0.5); ctx.lineTo(-s * 1.15, s * 0.5); ctx.lineTo(-s * 0.85, s * 0.13);
+  ctx.lineTo(-s * 0.35, s * 0.16); ctx.lineTo(-s * 0.6, s * 1.05); ctx.lineTo(-s * 0.35, s * 1.05);
+  ctx.lineTo(s * 0.15, s * 0.16); ctx.lineTo(s * 0.75, s * 0.13);
+  ctx.closePath();
+  ctx.fillStyle = color; ctx.fill();
+  ctx.shadowColor = 'transparent';
+  if (!flat) { ctx.lineWidth = 0.8; ctx.strokeStyle = 'rgba(0,0,0,.55)'; ctx.stroke(); }
+  ctx.restore();
+}
+function drawShip(x, y, ang, s, color, flat) {
+  ctx.save(); ctx.translate(x, y); ctx.rotate(ang);
+  if (!flat) { ctx.shadowColor = 'rgba(0,0,0,.6)'; ctx.shadowBlur = 5; ctx.shadowOffsetY = 2; }
+  ctx.beginPath();
+  ctx.moveTo(s * 1.5, 0); ctx.quadraticCurveTo(s * 0.9, -s * 0.42, s * 0.3, -s * 0.42);
+  ctx.lineTo(-s * 1.3, -s * 0.36); ctx.lineTo(-s * 1.3, s * 0.36); ctx.lineTo(s * 0.3, s * 0.42);
+  ctx.quadraticCurveTo(s * 0.9, s * 0.42, s * 1.5, 0);
+  ctx.fillStyle = color; ctx.fill();
+  ctx.shadowColor = 'transparent';
+  ctx.fillStyle = 'rgba(40, 48, 60, 0.85)';
+  ctx.fillRect(-s * 0.55, -s * 0.2, s * 0.75, s * 0.4);
+  ctx.fillRect(s * 0.45, -s * 0.08, s * 0.4, s * 0.16);
+  if (!flat) { ctx.lineWidth = 0.8; ctx.strokeStyle = 'rgba(0,0,0,.5)'; ctx.beginPath(); ctx.moveTo(s * 1.5, 0); ctx.quadraticCurveTo(s * 0.9, -s * 0.42, s * 0.3, -s * 0.42); ctx.lineTo(-s * 1.3, -s * 0.36); ctx.lineTo(-s * 1.3, s * 0.36); ctx.lineTo(s * 0.3, s * 0.42); ctx.quadraticCurveTo(s * 0.9, s * 0.42, s * 1.5, 0); ctx.stroke(); }
+  ctx.restore();
+}
+// NATO-style counter for a land army
+function drawCounter(x, y, col, label, sel) {
+  ctx.save();
+  ctx.shadowColor = 'rgba(0,0,0,.55)'; ctx.shadowBlur = 6; ctx.shadowOffsetY = 2;
+  ctx.fillStyle = 'rgba(10, 14, 26, 0.92)'; ctx.fillRect(x - 12, y - 8, 24, 16);
+  ctx.shadowColor = 'transparent';
+  ctx.strokeStyle = col; ctx.lineWidth = sel ? 2.6 : 1.8; ctx.strokeRect(x - 12, y - 8, 24, 16);
+  ctx.beginPath(); ctx.moveTo(x - 12, y - 8); ctx.lineTo(x + 12, y + 8); ctx.moveTo(x + 12, y - 8); ctx.lineTo(x - 12, y + 8); ctx.lineWidth = 1.4; ctx.stroke();
+  if (sel) { ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.2; ctx.strokeRect(x - 15, y - 11, 30, 22); }
+  if (label) {
+    ctx.font = '800 10.5px ' + FONT_BODY; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#fff'; ctx.shadowColor = 'rgba(0,0,0,.85)'; ctx.shadowBlur = 4;
+    ctx.fillText(label, x, y - 16);
+  }
+  ctx.restore();
+}
+function unitLabel(text, x, y) {
+  ctx.save(); ctx.font = '800 10.5px ' + FONT_BODY; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillStyle = '#fff'; ctx.shadowColor = 'rgba(0,0,0,.85)'; ctx.shadowBlur = 4; ctx.fillText(text, x, y); ctx.restore();
+}
+
+// ---------- units standing on the map ----------
+function drawUnits() {
+  const s = cam.s;
+  for (const u of G.units) {
+    const [x, y] = scr([u.x, u.y]);
+    if (x < -30 || y < -30 || x > vw + 30 || y > vh + 30) continue;
+    const col = sideColor(u.owner), sel = u.id === selUnit;
+    const show = u.owner === G.player || relation(u.owner) !== 'none' || s > 1;
+    if (!show) continue;
+    if (u.kind === 'army') drawCounter(x, y, col, fmt(u.n), sel);
+    else {
+      if (sel) { ctx.beginPath(); ctx.arc(x, y, 16, 0, 7); ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.stroke(); }
+      const sz = Math.max(5, Math.min(9, 4 + u.n * 0.4));
+      drawShip(x - 3, y - 3, -0.5, sz, col);
+      if (u.n > 1) drawShip(x + 5, y + 4, -0.5, sz * 0.8, col);
+      unitLabel(String(u.n), x, y - 15);
+    }
+  }
+}
+// forces in motion: the road ahead, and the vehicle itself
 function drawMarches(now) {
   const s = cam.s;
   let drawn = 0;
   for (const m of G.moves) {
-    if (drawn > 160) break;
+    if (drawn > 180) break;
     const pos = movePos(m, G.time);
-    const x = pos.x * s + cam.x, y = pos.y * s + cam.y;
-    const end = W.provs[m.path[m.path.length - 1]].c, ex = end[0] * s + cam.x, ey = end[1] * s + cam.y;
-    if ((x < -40 || y < -40 || x > vw + 40 || y > vh + 40) && (ex < -40 || ey < -40 || ex > vw + 40 || ey > vh + 40)) continue;
-    const mine = m.owner === G.player, col = relation(m.owner) === 'own' ? '#4da3ff' : relation(m.owner) === 'war' ? '#ff4d5e' : relation(m.owner) === 'ally' ? '#3ddc97' : '#e3e8f0';
+    const [x, y] = scr([pos.x, pos.y]);
+    const end = scr(m.pts[m.pts.length - 1]);
+    if ((x < -60 || y < -60 || x > vw + 60 || y > vh + 60) && (end[0] < -60 || end[1] < -60 || end[0] > vw + 60 || end[1] > vh + 60)) continue;
+    const mine = m.owner === G.player, col = sideColor(m.owner);
     if (!mine && relation(m.owner) === 'none' && s < 0.8) continue;
     drawn++;
-    ctx.save();
-    ctx.strokeStyle = col; ctx.globalAlpha = mine ? 0.9 : 0.6; ctx.lineWidth = mine ? 2.5 : 1.8;
-    ctx.setLineDash([6, 5]); ctx.lineDashOffset = -now / 40; ctx.lineCap = 'round';
-    ctx.beginPath(); ctx.moveTo(x, y);
-    for (let k = pos.k + 1; k < m.path.length; k++) {
-      const c = W.provs[m.path[k]].c;
-      ctx.lineTo(c[0] * s + cam.x, c[1] * s + cam.y);
+    if (m.type === 'missile') {
+      const a = scr(m.pts[0]), len = Math.hypot(end[0] - a[0], end[1] - a[1]);
+      const ctl = [(a[0] + end[0]) / 2, Math.min(a[1], end[1]) - Math.max(40, len * 0.35)];
+      const f = Math.max(0, Math.min(1, (G.time - m.dep) / (m.arr - m.dep))), tail = Math.max(0, f - 0.25);
+      ctx.save(); ctx.lineCap = 'round';
+      for (let j = 0; j < 10; j++) {
+        const q0 = bez(a, end, ctl, tail + (f - tail) * j / 10), q1 = bez(a, end, ctl, tail + (f - tail) * (j + 1) / 10);
+        ctx.strokeStyle = `rgba(255, ${200 + j * 5}, 150, ${j / 10})`; ctx.lineWidth = 1 + j * 0.2;
+        ctx.beginPath(); ctx.moveTo(q0[0], q0[1]); ctx.lineTo(q1[0], q1[1]); ctx.stroke();
+      }
+      const p = bez(a, end, ctl, f);
+      ctx.fillStyle = '#fff'; ctx.shadowColor = '#ffd27a'; ctx.shadowBlur = 10; ctx.beginPath(); ctx.arc(p[0], p[1], 2.6, 0, 7); ctx.fill();
+      ctx.restore();
+      continue;
     }
+    // remaining route
+    ctx.save();
+    ctx.strokeStyle = col; ctx.globalAlpha = mine ? 0.85 : 0.5; ctx.lineWidth = mine ? 2.2 : 1.6;
+    ctx.setLineDash(m.type === 'air' ? [2, 6] : [6, 5]); ctx.lineDashOffset = -now / 40; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(x, y);
+    for (let k = pos.k + 1; k < m.pts.length; k++) { const c = scr(m.pts[k]); if (Math.abs(c[0] - x) < vw * 2) ctx.lineTo(c[0], c[1]); }
     ctx.stroke();
     ctx.restore();
-    // token
-    const prev = W.provs[m.path[pos.k]].c, ang = Math.atan2(pos.y - prev[1], pos.x - prev[0]);
-    ctx.save(); ctx.translate(x, y);
-    ctx.shadowColor = 'rgba(0,0,0,.5)'; ctx.shadowBlur = 6;
-    ctx.beginPath(); ctx.arc(0, 0, mine ? 9 : 7, 0, 7); ctx.fillStyle = 'rgba(10, 14, 26, 0.92)'; ctx.fill();
-    ctx.shadowBlur = 0; ctx.lineWidth = 2; ctx.strokeStyle = col; ctx.stroke();
-    ctx.fillStyle = col;
-    if (m.type === 'land') {
-      ctx.rotate(ang);
-      ctx.beginPath(); ctx.moveTo(5, 0); ctx.lineTo(-3, -4.5); ctx.lineTo(-1, 0); ctx.lineTo(-3, 4.5); ctx.closePath(); ctx.fill();
+    if (m.type === 'air') {
+      // contrail, then the planes in formation
+      ctx.save();
+      const g = ctx.createLinearGradient(x, y, x - Math.cos(pos.ang) * 34, y - Math.sin(pos.ang) * 34);
+      g.addColorStop(0, 'rgba(255,255,255,0.7)'); g.addColorStop(1, 'rgba(255,255,255,0)');
+      ctx.strokeStyle = g; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x - Math.cos(pos.ang) * 34, y - Math.sin(pos.ang) * 34); ctx.stroke();
+      ctx.restore();
+      const n = m.fgt + m.bmb;
+      drawPlane(x, y, pos.ang, 8, col);
+      if (n > 1) { const bx = -Math.cos(pos.ang) * 10, by = -Math.sin(pos.ang) * 10, px = -Math.sin(pos.ang) * 9, py = Math.cos(pos.ang) * 9; drawPlane(x + bx + px, y + by + py, pos.ang, 6, col); if (n > 2) drawPlane(x + bx - px, y + by - py, pos.ang, 6, col); }
+      if (mine || s > 0.9) unitLabel(String(n), x, y - 16);
+    } else if (m.type === 'sea') {
+      // wake behind the stern
+      ctx.save(); ctx.strokeStyle = 'rgba(230, 240, 255, 0.55)'; ctx.lineWidth = 1.2;
+      const bx = x - Math.cos(pos.ang) * 10, by = y - Math.sin(pos.ang) * 10;
+      for (const sgn of [-1, 1]) {
+        ctx.beginPath(); ctx.moveTo(bx, by);
+        ctx.lineTo(bx - Math.cos(pos.ang) * 18 - Math.sin(pos.ang) * 7 * sgn, by - Math.sin(pos.ang) * 18 + Math.cos(pos.ang) * 7 * sgn); ctx.stroke();
+      }
+      ctx.restore();
+      drawShip(x, y, pos.ang, Math.max(6, Math.min(10, 5 + m.ships * 0.4)), col);
+      if (mine || s > 0.9) unitLabel(String(m.ships), x, y - 16);
     } else {
-      if (m.type === 'air') ctx.rotate(ang + Math.PI / 2);
-      drawIcon(m.type === 'air' ? 'apt' : 'port', 0, 0, 12, col);
-    }
-    ctx.restore();
-    if (mine || s > 0.9) {
-      const label = m.type === 'air' ? String(m.fgt + m.bmb) : m.type === 'sea' ? String(m.ships) : fmt(m.amount);
-      ctx.font = '800 10.5px ' + FONT_BODY; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.fillStyle = '#fff'; ctx.shadowColor = 'rgba(0,0,0,.8)'; ctx.shadowBlur = 4;
-      ctx.fillText(label, x, y - 16); ctx.shadowBlur = 0; ctx.shadowColor = 'transparent';
+      drawCounter(x, y, col, mine || s > 0.9 ? fmt(m.amount) : '', false);
+      // a little arrow showing the direction of march
+      ctx.save(); ctx.translate(x + Math.cos(pos.ang) * 17, y + Math.sin(pos.ang) * 17); ctx.rotate(pos.ang);
+      ctx.fillStyle = col; ctx.beginPath(); ctx.moveTo(5, 0); ctx.lineTo(-3, -4); ctx.lineTo(-3, 4); ctx.closePath(); ctx.fill(); ctx.restore();
     }
   }
 }
@@ -2007,7 +2345,7 @@ function draw(now) {
   const settled = now - camChangedAt > 140 && !gesture;
   // camera moves get a sharp redraw as soon as they settle; game changes at most every 1.2 s
   // selections and move modes redraw at once; game changes at most every 1.2 s
-  const uiKey = phase + '|' + selected + '|' + moveMode + '|' + pickNation + '|' + mapMode;
+  const uiKey = phase + '|' + selected + '|' + selUnit + '|' + moveMode + '|' + pickNation + '|' + mapMode;
   const uiChanged = uiKey !== lastUiKey;
   if (!staticCam || uiChanged || (settled && (staticKey !== camKey || (staticDirty && now - lastStaticAt > 1200)))) { renderStatic(); lastStaticAt = now; lastUiKey = uiKey; }
   computeShake(now);
@@ -2157,7 +2495,7 @@ function pointInProv(x, y, p) {
   }
   return inside;
 }
-function provAt(sx, sy) {
+function provAt(sx, sy, exact) {
   const mx = (sx - cam.x) / cam.s, my = (sy - cam.y) / cam.s;
   const gx = Math.floor(mx / W.HG), gy = Math.floor(my / W.HG);
   if (gx < 0 || gy < 0 || gx >= W.hcols || gy >= W.hrows) return -1;
@@ -2166,6 +2504,7 @@ function provAt(sx, sy) {
     if (mx < p.bb[0] || mx > p.bb[2] || my < p.bb[1] || my > p.bb[3]) continue;
     if (pointInProv(mx, my, p)) return id;
   }
+  if (exact) return -1;
   // forgiving taps on tiny islands: nearest centre within 14 screen px
   let best = -1, bd = (14 / cam.s) ** 2;
   for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
@@ -2173,6 +2512,12 @@ function provAt(sx, sy) {
     if (!cell || gx + dx < 0 || gx + dx >= W.hcols) continue;
     for (const id of cell) { const c = W.provs[id].c, d = (c[0] - mx) ** 2 + (c[1] - my) ** 2; if (d < bd) { bd = d; best = id; } }
   }
+  return best;
+}
+function provAtMap(x, y) { return provAt(x * cam.s + cam.x, y * cam.s + cam.y, true); }
+function unitAtScreen(sx, sy) {
+  let best = null, bd = 22 * 22;
+  for (const u of G.units) { const [x, y] = scr([u.x, u.y]); const d = (x - sx) ** 2 + (y - sy) ** 2; if (d < bd) { bd = d; best = u; } }
   return best;
 }
 function tap(sx, sy) {
@@ -2184,17 +2529,24 @@ function tap(sx, sy) {
     return;
   }
   if (phase !== 'play') return;
-  if (i < 0) { if (moveMode) { moveMode = false; renderPanel(); staticDirty = true; requestRender(); return; } selected = -1; panelOpen = false; pendingConfirm = null; renderPanel(); staticDirty = true; requestRender(); return; }
-  // "Invia truppe" mode: the next tap picks the destination
+  const pt = [(sx - cam.x) / cam.s, (sy - cam.y) / cam.s];
+  const u = unitAtScreen(sx, sy);
+  // choosing a destination: the tap is the exact point to go to
   if (moveMode) {
-    moveMode = false;
-    if (i !== selected && selected >= 0 && G.p[selected].owner === G.player) orderMove(selected, i);
-    renderPanel(); staticDirty = true; requestRender();
+    const src = moveSource();
+    if (src) {
+      const r = orderMove(src, pt, u && u.owner !== G.player ? u : null);
+      if (r === true || (r === 'keep' && !G.p[src.prov].mis)) { moveMode = false; if (src.unit && !unitById(src.unit.id)) selUnit = 0; }
+    } else moveMode = false;
+    renderPanel(); requestRender();
     return;
   }
+  if (u) { selUnit = u.id; selected = -1; panelOpen = false; pendingConfirm = null; renderPanel(); requestRender(); return; }
+  selUnit = 0;
+  if (i < 0) { selected = -1; panelOpen = false; pendingConfirm = null; renderPanel(); requestRender(); return; }
   if (selected !== i) { moveKeep = 0; panelOpen = false; }
   selected = i; pendingConfirm = null;
-  renderPanel(); staticDirty = true; requestRender();
+  renderPanel(); requestRender();
 }
 
 // ---------- UI ----------
@@ -2265,59 +2617,95 @@ function updateUI() { updateHUD(); renderPanel(); }
 // the panel follows the game live, but never rebuilds under a finger on the slider
 let sliderBusy = false, panelSig = '', moveKeep = 0;
 function panelSignature(i) {
+  if (i < 0) return 'u' + selUnit + (unitById(selUnit) || {}).n + moveMode + G.units.length;
   const P = G.p[i], me = G.player;
-  return [P.owner, P.army, P.fgt, P.bmb, P.ships, P.bar, P.apt, P.port, moveMode, panelOpen, P.eco, P.fort, P.sup, Math.floor(G.n[me].gold / 5), radLeft(i), blockaded(i), G.n[me].wars.length, G.n[me].allies.length, G.moves.length].join();
+  return [selUnit, P.mis, unitsIn(i).length, P.owner, P.army, P.fgt, P.bmb, P.ships, P.bar, P.apt, P.port, moveMode, panelOpen, P.eco, P.fort, P.sup, Math.floor(G.n[me].gold / 5), radLeft(i), blockaded(i), G.n[me].wars.length, G.n[me].allies.length, G.moves.length].join();
 }
 function refreshPanel() {
-  if (selected < 0 || sliderBusy || phase !== 'play') return;
+  if ((selected < 0 && !selUnit) || sliderBusy || phase !== 'play') return;
   if (panelSignature(selected) !== panelSig) renderPanel();
   if (dashOpen) renderDash();
 }
 const AIR_ICON = '✈︎', SEA_ICON = '⚓︎';
 let panelOpen = false;   // the management drawer (recruit and build) is open
+let selUnit = 0;         // a unit on the map is selected instead of a province
 const BUILD = {
-  bar: { name: 'Caserma', cost: BAR_COST, what: 'arruola fanteria' },
-  apt: { name: 'Aeroporto', cost: APT_COST, what: 'ospita e costruisce aerei' },
-  port: { name: 'Porto', cost: PORT_COST, what: 'ospita e costruisce navi, imbarca truppe' },
+  bar: { name: 'Caserma', cost: BAR_COST, what: 'arruola fanteria e lanciamissili' },
+  apt: { name: 'Aeroporto', cost: APT_COST, what: 'costruisce aerei' },
+  port: { name: 'Porto', cost: PORT_COST, what: 'costruisce navi, imbarca truppe' },
 };
+const MODE_HINT = {
+  land: 'Tocca un punto qualsiasi sulla terra: le tue zone (blu) o il nemico in guerra (rosso)',
+  air: 'Tocca un bersaglio nel cerchio, o una tua provincia qualsiasi per trasferire gli aerei',
+  sea: 'Tocca un punto sul mare, un tuo porto, o la costa di un nemico',
+  missile: 'Tocca una provincia o unità nemica nel cerchio: un missile per tocco',
+};
+function moveSource() {
+  if (selUnit) { const u = unitById(selUnit); return u && u.owner === G.player ? { unit: u } : null; }
+  return selected >= 0 && G.p[selected].owner === G.player ? { prov: selected } : null;
+}
+function slimBar(src) {
+  const panel = $('panel');
+  const P = src.prov !== undefined ? G.p[src.prov] : null, u = src.unit;
+  let line = '';
+  if (moveMode === 'land') {
+    const pool = u ? u.n : P.army, step = pool >= 1000 ? 100 : 10;
+    line = `<span class="mi">${ICON.inf}</span><input type="range" id="moveAmt" min="${step}" max="${pool}" step="${step}" value="${moveKeep && moveKeep <= pool ? moveKeep : pool}"><b id="moveVal"></b>`;
+  } else if (moveMode === 'air') line = `<span class="mi">${ICON.apt}</span><b>${P.fgt} caccia · ${P.bmb} bombardieri</b>`;
+  else if (moveMode === 'missile') line = `<span class="mi">${ICON.mis}</span><b>${P.mis} missili pronti</b>`;
+  else line = `<span class="mi">${ICON.port}</span><b>${u ? u.n : P.ships} navi</b>`;
+  panel.innerHTML = `<div class="slimrow">${line}<button class="btn sm" id="mCancel">${moveMode === 'missile' ? 'Fine' : 'Annulla'}</button></div><div class="slimhint">${MODE_HINT[moveMode]}</div>`;
+  panel.hidden = false;
+  $('mCancel').onclick = () => { moveMode = false; renderPanel(); requestRender(); };
+  const r = $('moveAmt');
+  if (r) {
+    $('moveVal').textContent = fmt(+r.value);
+    r.oninput = () => { moveKeep = +r.value; $('moveVal').textContent = fmt(+r.value); };
+    r.onpointerdown = () => { sliderBusy = true; };
+    r.onpointerup = r.onpointercancel = r.onchange = () => { sliderBusy = false; };
+  }
+}
+function renderUnitPanel(u) {
+  const panel = $('panel'), me = G.player, mine = u.owner === me;
+  const where = u.kind === 'army' ? (u.prov >= 0 ? `presso ${esc(pname(u.prov))}` : '') : (() => { const c = coastNear([u.x, u.y], 70); return c >= 0 ? `al largo di ${esc(pname(c))}` : 'in mare aperto'; })();
+  const port = u.kind === 'fleet' && mine ? homePort(me, [u.x, u.y]) : -1;
+  const inOwn = u.kind === 'army' && u.prov >= 0 && G.p[u.prov].owner === me;
+  panel.innerHTML = `<div class="head"><span class="chip" style="background:${nat(u.owner).color}"></span>
+    <div style="min-width:0;flex:1"><h2>${u.kind === 'army' ? 'Armata' : 'Flotta'} · ${u.kind === 'army' ? fmt(u.n) + ' soldati' : u.n + ' navi'}</h2>
+    <div class="sub">${esc(fullName(u.owner))} · ${where}</div></div>
+    <button class="icon-btn" id="closePanel" aria-label="Chiudi"><svg><use href="#i-close"/></svg></button></div>
+    ${mine ? `<div class="btns">
+      <button class="pb main" data-mode="${u.kind === 'army' ? 'land' : 'sea'}">${u.kind === 'army' ? ICON.inf + ' Muovi' : ICON.port + ' Naviga'}</button>
+      ${inOwn ? '<button class="pb" id="uMerge">Nella guarnigione</button>' : ''}
+      ${port >= 0 ? `<button class="pb" id="uDock">Rientra a ${esc(pname(port))}</button>` : ''}
+    </div>` : `<div class="btns">${atWar(me, u.owner) ? '<span class="tag war">Nemico</span><span class="sub">Colpiscilo con aerei o missili, o attaccalo con le tue forze.</span>' : '<span class="tag peace">Non in guerra</span>'}</div>`}`;
+  panel.hidden = false;
+  $('closePanel').onclick = () => { selUnit = 0; moveMode = false; renderPanel(); requestRender(); };
+  for (const b of panel.querySelectorAll('[data-mode]')) b.onclick = () => { moveMode = b.dataset.mode; renderPanel(); requestRender(); };
+  if ($('uMerge')) $('uMerge').onclick = () => { G.p[u.prov].army += u.n; G.units = G.units.filter(x => x !== u); selUnit = 0; selected = u.prov; afterAction(); };
+  if ($('uDock')) $('uDock').onclick = () => { recallFleet(u); selUnit = 0; afterAction(); };
+}
 function renderPanel() {
   const panel = $('panel');
-  if (phase !== 'play' || selected < 0) { panel.hidden = true; return; }
+  if (phase !== 'play' || (selected < 0 && !selUnit)) { panel.hidden = true; return; }
+  if (selUnit && !unitById(selUnit)) { selUnit = 0; if (selected < 0) { panel.hidden = true; return; } }
+  panelSig = panelSignature(selected);
+  panel.classList.toggle('slim', !!moveMode);
+  panel.classList.toggle('open', panelOpen && !moveMode && !selUnit);
+  const src = moveSource();
+  if (moveMode && src) return slimBar(src);
+  if (selUnit) return renderUnitPanel(unitById(selUnit));
   const i = selected, P = G.p[i], o = P.owner, me = G.player, gold = G.n[me].gold;
-  panelSig = panelSignature(i);
   const pr = W.provs[i], mine = o === me;
   const isCap = G.n[o].capital === i;
   const known = mine || allied(me, o) || atWar(me, o);
-  panel.classList.toggle('slim', !!moveMode);
-  panel.classList.toggle('open', panelOpen && mine && !moveMode);
-
-  // while choosing a destination the panel shrinks to one line so the map stays free
-  if (moveMode && mine) {
-    let line = '';
-    if (moveMode === 'land') {
-      const step = P.army >= 1000 ? 100 : 10;
-      line = `<span class="mi">${ICON.inf}</span><input type="range" id="moveAmt" min="${step}" max="${P.army}" step="${step}" value="${moveKeep && moveKeep <= P.army ? moveKeep : P.army}"><b id="moveVal"></b>`;
-    } else if (moveMode === 'air') line = `<span class="mi">${ICON.apt}</span><b>${P.fgt} caccia · ${P.bmb} bomb.</b>`;
-    else line = `<span class="mi">${ICON.port}</span><b>${P.ships} navi</b>`;
-    const hint = moveMode === 'land' ? 'Tocca dove mandarle: rosso = attacco, blu = spostamento' : moveMode === 'air' ? 'Tocca un bersaglio dentro il cerchio, o un tuo aeroporto' : 'Tocca un tuo porto o una costa nemica';
-    panel.innerHTML = `<div class="slimrow">${line}<button class="btn sm" id="mCancel">Annulla</button></div><div class="slimhint">${hint}</div>`;
-    panel.hidden = false;
-    $('mCancel').onclick = () => { moveMode = false; renderPanel(); staticDirty = true; requestRender(); };
-    const r = $('moveAmt');
-    if (r) {
-      $('moveVal').textContent = fmt(+r.value);
-      r.oninput = () => { moveKeep = +r.value; $('moveVal').textContent = fmt(+r.value); };
-      r.onpointerdown = () => { sliderBusy = true; };
-      r.onpointerup = r.onpointercancel = r.onchange = () => { sliderBusy = false; };
-    }
-    return;
-  }
 
   const bld = k => P[k] ? `<span class="bchip on" title="${BUILD[k].name}">${ICON[k]}</span>` : '';
   const forces = `<div class="frow">
       <span class="fc"><i>${ICON.inf}</i>${fmt(P.army)}</span>
       ${P.apt || P.fgt + P.bmb ? `<span class="fc"><i>${ICON.apt}</i>${known ? P.fgt + P.bmb : '?'}</span>` : ''}
       ${P.port || P.ships ? `<span class="fc"><i>${ICON.port}</i>${known ? P.ships : '?'}</span>` : ''}
+      ${P.mis ? `<span class="fc"><i>${ICON.mis}</i>${known ? P.mis : '?'}</span>` : ''}
       <span class="bl">${bld('bar')}${bld('apt')}${bld('port')}${P.fort ? `<span class="bchip on">${ICON.fort}${P.fort}</span>` : ''}</span>
     </div>`;
   const tags = [];
@@ -2325,9 +2713,9 @@ function renderPanel() {
   if (blockaded(i)) tags.push('<span class="tag war">Porto bloccato</span>');
   if (!P.sup) tags.push('<span class="tag truce">Senza rifornimenti</span>');
   if (recentlyBombed(i)) tags.push('<span class="tag war">Bombardata</span>');
-  const incoming = G.moves.filter(m => m.path[m.path.length - 1] === i && atWar(m.owner, o));
-  if (incoming.length) tags.push(`<span class="tag war">${mine ? 'Sotto attacco' : 'Attacco in corso'}</span>`);
-  for (const f of G.fleets.filter(f => f.prov === i)) tags.push(`<span class="tag ${f.owner === me ? 'ally' : 'war'}">${ICON.port} ${f.ships} di ${esc(fullName(f.owner))}</span>`);
+  const guards = unitsIn(i, o).reduce((s, u) => s + u.n, 0);
+  if (guards) tags.push(`<span class="tag ${mine ? 'ally' : 'war'}">+${fmt(guards)} in armate</span>`);
+  if (G.moves.some(m => m.type === 'land' && moveTarget(m) === i && atWar(m.owner, o))) tags.push(`<span class="tag war">${mine ? 'Sotto attacco' : 'Attacco in corso'}</span>`);
 
   let html = `<div class="head"><span class="chip" style="background:${nat(o).color}"></span>
     <div style="min-width:0;flex:1"><h2>${esc(pr.name)}${isCap ? '<span class="cap-badge">Capitale</span>' : ''}</h2>
@@ -2337,19 +2725,21 @@ function renderPanel() {
 
   if (mine) {
     html += `<div class="btns">
-      <button class="pb main" data-mode="land" ${P.army < 10 ? 'disabled' : ''}>${ICON.inf} Muovi truppe</button>
+      <button class="pb main" data-mode="land" ${P.army < 10 ? 'disabled' : ''}>${ICON.inf} Truppe</button>
       ${P.fgt + P.bmb ? `<button class="pb" data-mode="air">${ICON.apt} Aerei</button>` : ''}
       ${P.ships ? `<button class="pb" data-mode="sea">${ICON.port} Flotta</button>` : ''}
+      ${P.mis ? `<button class="pb" data-mode="missile">${ICON.mis} Missili</button>` : ''}
       <button class="pb" id="pManage">${panelOpen ? 'Chiudi' : 'Gestisci'}</button></div>`;
     if (panelOpen) {
       const can = (ok, cost) => !ok || gold < cost ? 'disabled' : '';
       const recruitBtn = (id, icon, label, cost, need, ok) => `<button class="act" id="${id}" ${can(ok, cost)}><span class="gi">${icon}</span>${label}<small>${ok ? cost + ' oro' : need}</small></button>`;
       const buildBtn = k => {
-        const ok = !P[k] && (k !== 'port' || pr.coastal);
-        return `<button class="act" data-build="${k}" ${can(ok, BUILD[k].cost)}><span class="gi">${ICON[k]}</span>${BUILD[k].name}<small>${P[k] ? 'già presente' : k === 'port' && !pr.coastal ? 'serve la costa' : BUILD[k].cost + ' oro'}</small></button>`;
+        const ok = !P[k] && (k !== 'port' || pr.sp);
+        return `<button class="act" data-build="${k}" ${can(ok, BUILD[k].cost)}><span class="gi">${ICON[k]}</span>${BUILD[k].name}<small>${P[k] ? 'già presente' : k === 'port' && !pr.sp ? 'serve la costa' : BUILD[k].cost + ' oro'}</small></button>`;
       };
       html += `<div class="sect">Arruola</div><div class="actions">
         ${recruitBtn('rInf', ICON.inf, 'Fanteria 1k', RECRUIT_COST, 'serve caserma', P.bar)}
+        ${recruitBtn('rMis', ICON.mis, 'Lanciamissili', MIS_COST, 'serve caserma', P.bar)}
         ${recruitBtn('rFgt', ICON.apt, 'Caccia', FGT_COST, 'serve aeroporto', P.apt)}
         ${recruitBtn('rBmb', ICON.apt, 'Bombardiere', BMB_COST, 'serve aeroporto', P.apt)}
         ${recruitBtn('rShip', ICON.port, 'Nave', SHIP_COST, 'serve porto', P.port)}
@@ -2358,18 +2748,15 @@ function renderPanel() {
         ${buildBtn('bar')}${buildBtn('apt')}${buildBtn('port')}
         <button class="act" id="aEco" ${P.eco >= 5 || gold < ecoCost(i) ? 'disabled' : ''}><span class="gi">${ICON.eco}</span>Economia ${P.eco}/5<small>${P.eco >= 5 ? 'max' : ecoCost(i) + ' oro'}</small></button>
         <button class="act" id="aFort" ${P.fort >= 3 || gold < fortCost(i) ? 'disabled' : ''}><span class="gi">${ICON.fort}</span>Fortezza ${P.fort}/3<small>${P.fort >= 3 ? 'max' : fortCost(i) + ' oro'}</small></button>
-      </div>
-      <p class="hint">Caserma: arruola fanteria. Aeroporto: ospita e costruisce aerei. Porto: ospita navi e imbarca truppe per gli sbarchi.</p>`;
+      </div>`;
     }
   } else {
     const war = atWar(me, o), ally = allied(me, o), tr = truceLeft(me, o);
     const cool = k => (G.asked[k + o] || 0) > G.day;
-    const myFleet = G.fleets.find(f => f.prov === i && f.owner === me);
     const status = war ? '<span class="tag war">In guerra</span>' : ally ? '<span class="tag ally">Alleato</span>' : tr ? `<span class="tag truce">Tregua ${Math.ceil(tr / 30)} mesi</span>` : '<span class="tag peace">In pace</span>';
     html += `<div class="btns">${status}`;
     if (war) {
       html += `<button class="pb" id="aPeace" ${cool('pp') ? 'disabled' : ''}>Proponi pace</button>
-        ${myFleet ? `<button class="pb" id="aRecall">Richiama flotta</button>` : ''}
         ${G.n[me].nukes > 0 ? `<button class="pb nuke" id="aNuke">${pendingConfirm === 'nuke' + i ? 'Conferma lancio' : '☢︎ Atomica'}</button>` : ''}`;
     } else if (ally) {
       html += `<button class="pb" id="aAid" ${cool('ai') || gold < AID_COST ? 'disabled' : ''}>Aiuti ${AID_COST}</button>
@@ -2388,12 +2775,14 @@ function renderPanel() {
   if (mine) {
     for (const b of panel.querySelectorAll('[data-mode]')) b.onclick = () => {
       moveMode = b.dataset.mode; panelOpen = false;
-      if (moveMode === 'air') { const c = pr.c; centerOn(c[0], c[1], Math.min(cam.s, Math.min(vw, vh * 0.7) / (AIR_RANGE * 2.3)), 0.42); }
+      const r = moveMode === 'air' ? AIR_RANGE : moveMode === 'missile' ? MISSILE_RANGE : 0;
+      if (r) centerOn(pr.c[0], pr.c[1], Math.min(cam.s, Math.min(vw, vh * 0.7) / (r * 2.3)), 0.42);
       renderPanel(); staticDirty = true; requestRender();
     };
     $('pManage').onclick = () => { panelOpen = !panelOpen; renderPanel(); };
     if (panelOpen) {
       $('rInf').onclick = () => recruit(i, 'inf');
+      $('rMis').onclick = () => recruit(i, 'mis');
       $('rFgt').onclick = () => recruit(i, 'fgt');
       $('rBmb').onclick = () => recruit(i, 'bmb');
       $('rShip').onclick = () => recruit(i, 'ship');
@@ -2409,7 +2798,6 @@ function renderPanel() {
     if ($('aAlly')) $('aAlly').onclick = () => playerAlly(o);
     if ($('aAid')) $('aAid').onclick = () => playerAid(o);
     if ($('aBreak')) $('aBreak').onclick = confirmThen('break' + o, () => playerBreak(o));
-    if ($('aRecall')) $('aRecall').onclick = () => { const f = G.fleets.find(f => f.prov === i && f.owner === me); if (f) recallFleet(f); afterAction(); };
   }
 }
 
@@ -2474,14 +2862,15 @@ function renderDash() {
       <p class="sub">I rapporti salgono con alleanze, aiuti e paci; scendono con dichiarazioni di guerra, conquiste e armi nucleari.</p>`;
   } else if (dashTab === 'mil') {
     const mv = G.moves.filter(m => m.owner === me);
-    const fl = G.fleets.filter(f => f.owner === me);
+    const fl = fleetsOf(me), arm = G.units.filter(u => u.owner === me && u.kind === 'army');
     const top = mine.slice().sort((a, b) => power(G.p[b]) - power(G.p[a])).slice(0, 8);
     const what = m => m.type === 'air' ? `${ICON.apt} ${m.fgt + m.bmb} aerei` : m.type === 'sea' ? `${ICON.port} ${m.ships} navi` : `${fmt(m.amount)} soldati`;
     body = `<div class="kpis">
       <div class="kpi"><span>Soldati</span><b>${fmt(f.army)}</b></div><div class="kpi"><span>Caccia</span><b>${f.fgt}</b></div>
       <div class="kpi"><span>Bombardieri</span><b>${f.bmb}</b></div><div class="kpi"><span>Navi</span><b>${f.ships}</b></div></div>
-      <h3>In movimento (${mv.length})</h3>${mv.length ? mv.map(m => `<button class="drow" data-go="${m.path[m.path.length - 1]}"><b>${what(m)}</b><span class="sub">${esc(pname(m.path[0]))} → ${esc(pname(m.path[m.path.length - 1]))}</span><span class="rv">${daysWord(Math.max(1, Math.ceil(m.arr - G.time)))}</span></button>`).join('') : '<p class="sub">Nessuna forza in movimento.</p>'}
-      <h3>Flotte schierate (${fl.length})</h3>${fl.length ? fl.map((f, k) => `<div class="drow"><b>${ICON.port} ${f.ships} navi</b><span class="sub">blocco a ${esc(pname(f.prov))}</span><button class="btn sm" data-recall="${k}">Richiama</button></div>`).join('') : '<p class="sub">Nessuna flotta davanti a coste nemiche.</p>'}
+      <h3>In movimento (${mv.length})</h3>${mv.length ? mv.map(m => { const t = moveTarget(m), f0 = provAtMap(m.pts[0][0], m.pts[0][1]); return `<button class="drow" data-go="${t >= 0 ? t : G.n[me].capital}"><b>${what(m)}</b><span class="sub">${f0 >= 0 ? esc(pname(f0)) : 'mare'} → ${t >= 0 ? esc(pname(t)) : 'mare aperto'}</span><span class="rv">${daysWord(Math.max(1, Math.ceil(m.arr - G.time)))}</span></button>`; }).join('') : '<p class="sub">Nessuna forza in movimento.</p>'}
+      <h3>Armate sulla mappa (${arm.length})</h3>${arm.length ? arm.map(u => `<button class="drow" data-unit="${u.id}"><b>${ICON.inf} ${fmt(u.n)} soldati</b><span class="sub">${u.prov >= 0 ? esc(pname(u.prov)) : ''}</span></button>`).join('') : '<p class="sub">Nessuna armata schierata fuori dalle guarnigioni.</p>'}
+      <h3>Flotte in mare (${fl.length})</h3>${fl.length ? fl.map((f, k) => { const c = coastNear([f.x, f.y], 70); return `<div class="drow"><b>${ICON.port} ${f.n} navi</b><span class="sub">${c >= 0 ? (atWar(me, G.p[c].owner) ? 'blocco a ' : 'presso ') + esc(pname(c)) : 'in mare aperto'}</span><button class="btn sm" data-unit="${f.id}">Vedi</button><button class="btn sm" data-recall="${k}">Rientra</button></div>`; }).join('') : '<p class="sub">Nessuna flotta in mare.</p>'}
       <h3>Guarnigioni principali</h3>${top.map(i => `<button class="drow" data-go="${i}"><b>${esc(pname(i))}</b><span class="sub">${fmt(G.p[i].army)} soldati${G.p[i].fgt + G.p[i].bmb ? ` · ${ICON.apt} ${G.p[i].fgt + G.p[i].bmb}` : ''}${G.p[i].ships ? ` · ${ICON.port} ${G.p[i].ships}` : ''}</span></button>`).join('')}`;
   } else if (dashTab === 'eco') {
     const rich = mine.slice().sort((a, b) => provIncome(b) - provIncome(a)).slice(0, 8);
@@ -2516,7 +2905,8 @@ function renderDash() {
   for (const b of el.querySelectorAll('[data-goc]')) b.onclick = () => goTo(G.n[+b.dataset.goc].capital);
   for (const b of el.querySelectorAll('[data-peace]')) b.onclick = () => playerPeace(+b.dataset.peace);
   if ($('dNuke')) $('dNuke').onclick = () => { closeDash(); showArsenal(); };
-  for (const b of el.querySelectorAll('[data-recall]')) b.onclick = () => { const f = G.fleets.filter(f => f.owner === me)[+b.dataset.recall]; if (f) recallFleet(f); afterAction(); };
+  for (const b of el.querySelectorAll('[data-recall]')) b.onclick = () => { const f = fleetsOf(me)[+b.dataset.recall]; if (f) recallFleet(f); afterAction(); };
+  for (const b of el.querySelectorAll('[data-unit]')) b.onclick = () => { const u = unitById(+b.dataset.unit); if (!u) return; closeDash(); selUnit = u.id; selected = -1; centerOn(u.x, u.y, Math.max(cam.s, 1), 0.35); renderPanel(); requestRender(); };
 }
 
 // modals pause the clock; requests arriving meanwhile wait in line
@@ -2593,7 +2983,8 @@ function showMenu() {
     <ul>
       <li>Il tempo scorre da solo. In basso a destra metti in pausa o acceleri (1×, 2×, 4×). Ogni giorno incassi la rendita meno il mantenimento delle forze.</li>
       <li>Tocca una tua provincia per arruolare fanteria, caccia, bombardieri e navi (solo sulla costa), migliorare l'economia o fortificarla.</li>
-      <li>Truppe di terra: le uniche che conquistano. Marciano lente attraverso il tuo territorio e quello degli alleati; marce lunghe abbassano il morale.</li>
+      <li>Truppe di terra: le uniche che conquistano. Le mandi in un punto qualsiasi: dove arrivano restano come armata sulla mappa, che puoi toccare e muovere di nuovo.</li>
+      <li>Lanciamissili: si costruiscono in caserma e colpiscono province o unità nemiche nel loro raggio.</li>
       <li>Aviazione: bombarda le province nemiche entro il raggio, indebolendone truppe e difese. I caccia scortano e difendono.</li>
       <li>Marina: attacca le flotte nemiche, blocca i porti (rendita dimezzata), sostiene gli sbarchi e impedisce al nemico di attraversare il mare.</li>
       <li>Province staccate dalla capitale restano senza rifornimenti e perdono truppe.</li>
