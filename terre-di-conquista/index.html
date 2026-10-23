@@ -237,7 +237,7 @@ const SAVE_KEY = 'terre-di-conquista-mondo-v1';
 const MONTHS = ['Gen','Feb','Mar','Apr','Mag','Giu','Lug','Ago','Set','Ott','Nov','Dic'];
 const START_YEAR = 2026;
 const RECRUIT = 1000, RECRUIT_COST = 20;
-const MAX_ZOOM = 14;
+const MAX_ZOOM = 8;
 
 // ---------- world (static) ----------
 function decodeRing(d) {
@@ -643,6 +643,82 @@ function outlineOf(n) {
   outlines.set(n, path);
   return path;
 }
+// satellite tile pyramid: tiles/1 (4000 px wide) and tiles/3 (12000 px), 512 px each
+const TILE_PX = 512, MAX_TILES = 90;
+const tileCache = new Map();
+let tileClock = 0;
+function getTile(f, tx, ty, onlyCached) {
+  const key = f + '/' + tx + '_' + ty;
+  let e = tileCache.get(key);
+  if (!e) {
+    if (onlyCached) return null;
+    e = { img: new Image(), ready: false, used: 0 };
+    e.img.onload = () => { e.ready = true; requestRender(); };
+    e.img.onerror = () => { e.failed = true; };
+    e.img.src = 'tiles/' + key + '.jpg';
+    tileCache.set(key, e);
+    if (tileCache.size > MAX_TILES) {
+      const old = [...tileCache.entries()].sort((a, b) => a[1].used - b[1].used).slice(0, tileCache.size - MAX_TILES);
+      for (const [k, v] of old) { if (v.used >= tileClock - 1) continue; v.img.src = ''; tileCache.delete(k); }
+    }
+  }
+  e.used = tileClock;
+  return e;
+}
+let landPathCache = null;
+function landPath() {
+  if (!landPathCache) { landPathCache = new Path2D(); for (const p of W.provs) landPathCache.addPath(p.path); }
+  return landPathCache;
+}
+let tilesHave = null;
+fetch('tiles/3/have.json').then(r => r.json()).then(list => { tilesHave = new Set(list); requestRender(); }).catch(() => {});
+// two scales of fractal grain, anchored to the map, so zoomed-in land reads as terrain
+let grainPats = null;
+function makeGrain(size, seed) {
+  const c = document.createElement('canvas'); c.width = c.height = size;
+  const g = c.getContext('2d'), img = g.createImageData(size, size);
+  const rnd = (x, y) => { let h = (x * 374761393 + y * 668265263 + seed * 1442695041) | 0; h = Math.imul(h ^ (h >>> 13), 1274126177); return ((h ^ (h >>> 16)) & 255) / 255; };
+  const noise = (x, y, p) => {
+    const xi = Math.floor(x / p), yi = Math.floor(y / p), fx = x / p - xi, fy = y / p - yi, n = size / p;
+    const a = rnd(xi % n, yi % n), b = rnd((xi + 1) % n, yi % n), cc = rnd(xi % n, (yi + 1) % n), d = rnd((xi + 1) % n, (yi + 1) % n);
+    const u = fx * fx * (3 - 2 * fx), v = fy * fy * (3 - 2 * fy);
+    return a + (b - a) * u + (cc - a) * v + (a - b - cc + d) * u * v;
+  };
+  for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) {
+    const v = noise(x, y, 32) * 0.4 + noise(x, y, 8) * 0.35 + noise(x, y, 2) * 0.25;
+    const o = (y * size + x) * 4, l = Math.round(v * 255);
+    img.data[o] = img.data[o + 1] = img.data[o + 2] = l; img.data[o + 3] = 255;
+  }
+  g.putImageData(img, 0, 0);
+  return c;
+}
+function drawGrain(alpha) {
+  if (alpha <= 0) return;
+  if (!grainPats) grainPats = [makeGrain(256, 1), makeGrain(256, 7)].map(c => ctx.createPattern(c, 'repeat'));
+  ctx.save();
+  ctx.globalCompositeOperation = 'soft-light';
+  [[0.12, 0.55], [0.5, 0.45]].forEach(([scale, a], k) => {
+    grainPats[k].setTransform(new DOMMatrix().scale(scale));
+    ctx.globalAlpha = alpha * a;
+    ctx.fillStyle = grainPats[k];
+    ctx.fill(landPath(), 'evenodd');
+  });
+  ctx.restore();
+}
+function drawTiles(f, onlyCached) {
+  if (!onlyCached) tileClock++;
+  const unit = TILE_PX / f, s = cam.s;
+  const cols = Math.ceil(MW * f / TILE_PX), rows = Math.ceil(MH * f / TILE_PX);
+  const x0 = Math.max(0, Math.floor(-cam.x / s / unit)), x1 = Math.min(cols - 1, Math.floor((vw - cam.x) / s / unit));
+  const y0 = Math.max(0, Math.floor(-cam.y / s / unit)), y1 = Math.min(rows - 1, Math.floor((vh - cam.y) / s / unit));
+  const pad = 0.6 / s;
+  for (let ty = y0; ty <= y1; ty++) for (let tx = x0; tx <= x1; tx++) {
+    if (f === 3 && (!tilesHave || !tilesHave.has(tx + '_' + ty))) continue;
+    const e = getTile(f, tx, ty, onlyCached);
+    if (!e || !e.ready) continue;
+    ctx.drawImage(e.img, tx * unit, ty * unit, e.img.naturalWidth / f + pad, e.img.naturalHeight / f + pad);
+  }
+}
 function prepareSea() {
   const S = 0.5;
   seaLayer = document.createElement('canvas');
@@ -759,6 +835,16 @@ function render() {
   if (sat) {
     ctx.imageSmoothingQuality = 'high';
     ctx.drawImage(earthImg, 0, 0, MW, MH);
+    const ppu = s * dpr;
+    if (ppu > 0.6) drawTiles(1, false);
+    if (ppu > 1.6) {
+      // close up: land from the 12000 px tiles, cut along the vector coastline, plus fine grain
+      ctx.save();
+      ctx.clip(landPath(), 'evenodd');
+      if (ppu > 2.2) drawTiles(3, false);
+      drawGrain(Math.min(1, (ppu - 1.6) / 2));
+      ctx.restore();
+    }
     // light tint on your land and on enemies at war
     for (let n = 0; n < nationPaths.length; n++) {
       const NP = nationPaths[n];
