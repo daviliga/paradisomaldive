@@ -424,7 +424,7 @@ const AIR_RANGE = 220;                                    // how far planes fly 
 const SPEEDS = [0, 0.5, 1, 2];                            // game days per real second
 const FGT_COST = 45, BMB_COST = 55, SHIP_COST = 70, AID_COST = 60;
 const BAR_COST = 60, APT_COST = 120, PORT_COST = 100, MIS_COST = 50;
-const MISSILE_RANGE = 320, MISSILE_SPEED = 900;
+const MISSILE_RANGE = 320, MISSILE_SPEED = 100;  // a cruise missile crosses its full range in about three days
 const missileRange = n => MISSILE_RANGE * (hasTech(n, 'lrm') ? 1.5 : 1);
 // narrow straits and canals the 20-unit water grid would otherwise close (map units)
 const STRAITS = [
@@ -1139,7 +1139,7 @@ function dispatch(owner, type, pts, load, seaFrom = Infinity) {
     tl.push(tl[k - 1] + ptDist(pts[k - 1], pts[k]) / v);
   }
   const total = tl[tl.length - 1] || 0.01;
-  const dur = Math.max(type === 'missile' ? 0.15 : type === 'air' ? 0.3 : 0.5, total);
+  const dur = Math.max(type === 'missile' ? 1.2 : type === 'air' ? 0.3 : 0.5, total);
   const m = { id: G.nextMove++, owner, type, pts, tl: tl.map(x => x / total), dep: G.time, arr: G.time + dur, ...load };
   G.moves.push(m);
   if (G.player >= 0 && owner !== G.player && type !== 'air' && type !== 'missile' && !(type === 'sea' && !load.ships && !load.cars)) {
@@ -1209,6 +1209,7 @@ function sendFleet(owner, src, end, ships, opts = {}) {
 function fireMissile(owner, from, target, tgtUnit) {
   if (G.p[from].mis <= 0) return null;
   G.p[from].mis--;
+  launchFx(W.provs[from].c, false);
   const end = tgtUnit ? [tgtUnit.x, tgtUnit.y] : W.provs[target].c.slice();
   return dispatch(owner, 'missile', [W.provs[from].c.slice(), end], { target, tgtUnit: tgtUnit ? tgtUnit.id : 0 });
 }
@@ -1425,11 +1426,12 @@ function sendBack(m) {
 // an anti-missile shield covers every province of its owner within ABM_RANGE
 const abmCover = (owner, pt) => provsOf(owner).some(i => G.p[i].abm && ptDist(W.provs[i].c, pt) < ABM_RANGE);
 function resolveMissile(m) {
+  if (m.nuke) return detonateNuke(m.owner, m.target);
   const me = m.owner, unit = m.tgtUnit ? unitById(m.tgtUnit) : null, P = G.p[m.target];
   if (!unit && !P) return;
   const o = unit ? unit.owner : P.owner;
   if (abmCover(o, m.pts[1]) && Math.random() < 0.6) {
-    anims.push({ kind: 'burst', p: m.pts[1], t0: performance.now(), dur: 600, color: '#9fe8ff' });
+    interceptFx(m.pts[1], false);
     if (me === G.player) news(`Missile intercettato dallo scudo di ${fullName(o)}.`, 'bad', m.target);
     else if (o === G.player) news(`Il tuo scudo antimissile ha intercettato un missile di ${fullName(me)}.`, 'good', m.target);
     return;
@@ -1620,16 +1622,29 @@ function nukeTarget(n, m) {
   }
   return best;
 }
+// an intercontinental missile leaves the capital and needs a few days to arrive
 function launchNuke(att, target) {
   if (G.n[att].nukes <= 0 || target < 0) return false;
   G.n[att].nukes--;
+  const cap = G.n[att].capital, from = G.p[cap] && G.p[cap].owner === att ? cap : provsOf(att)[0];
+  const a = W.provs[from].c.slice(), b = W.provs[target].c.slice();
+  const dur = 1.5 + ptDist(a, b) / 700, days = daysWord(Math.max(1, Math.round(dur)));
+  G.moves.push({ id: G.nextMove++, owner: att, type: 'missile', nuke: true, pts: [a, b], tl: [0, 1], dep: G.time, arr: G.time + dur, target, tgtUnit: 0 });
+  launchFx(a, true);
+  const victim = G.p[target].owner;
+  if (att === G.player) news(`Missile nucleare in volo verso ${pname(target)}: impatto tra ${days}.`, 'bad', target);
+  else if (victim === G.player) { markAlert(target, 'nuke'); raiseAlert(`☢︎ ${fullName(att)} ha lanciato un missile nucleare contro ${pname(target)}! Impatto tra ${days}.`, target, true); }
+  else if (nearPlayer(att) || nearPlayer(victim)) news(`${fullName(att)} ha lanciato un missile nucleare contro ${fullName(victim)}.`, 'bad', target);
+  return true;
+}
+function detonateNuke(att, target) {
   const P = G.p[target], victim = P.owner;
   if (abmCover(victim, W.provs[target].c) && Math.random() < 0.35) {
     // the shield stops the warhead: no explosion, but the launch is an act the world remembers
     if (victim !== att && G.n[victim].nukes > 0) G.retal.push([victim, att]);
     if (att === G.player) { relAll(-20); relAdd(victim, -80); news(`La tua testata su ${pname(target)} è stata intercettata dallo scudo antimissile.`, 'bad', target); }
     else if (victim === G.player) { markAlert(target, 'nuke'); raiseAlert(`Il tuo scudo ha intercettato una testata nucleare di ${fullName(att)} diretta su ${pname(target)}!`, target, true); }
-    anims.push({ kind: 'burst', p: W.provs[target].c, t0: performance.now(), dur: 1200, color: '#9fe8ff' });
+    interceptFx(W.provs[target].c, true);
     return true;
   }
   addKia(att, victim, victim, P.army * 0.95);
@@ -1650,7 +1665,9 @@ function launchNuke(att, target) {
   if (att === G.player) news(`Testata nucleare su ${where}. Il mondo guarda con orrore.`, 'bad', target);
   else if (victim === G.player) { markAlert(target, 'nuke'); raiseAlert(`${fullName(att)} ha colpito ${where} con un'arma nucleare!`, target, true); const c = W.provs[target].c; centerOn(c[0], c[1], Math.max(cam.s, 0.9), 0.45); }
   else news(`${fullName(att)} ha lanciato un'arma nucleare su ${where} (${fullName(victim)}).`, 'bad', target);
-  nukeAnim(att, target);
+  // the flight is over: only the explosion is left to show
+  anims.push({ kind: 'nuke', a: W.provs[target].c, b: W.provs[target].c, t0: performance.now() - 1700, dur: 1700, boom: 3400 });
+  scorch(W.provs[target].c, 26, 360);
   return true;
 }
 
@@ -2525,13 +2542,19 @@ function conquestFx(i, kind) {
   if (kind === 'other' && anims.length > 100) return;
   anims.push({ kind: 'conquest', i, t0: performance.now(), dur: kind === 'other' ? 1400 : 2600, how: kind });
 }
-function airFx(p) { anims.push({ kind: 'burst', p, t0: performance.now(), dur: 900, color: '#ffa64d' }); }
-function seaFx(p, win) { anims.push({ kind: 'burst', p, t0: performance.now(), dur: 900, color: win ? '#7fb8ff' : '#ff4d5e' }); }
-function missileFx(p) { anims.push({ kind: 'burst', p, t0: performance.now(), dur: 700, color: '#ffe08a' }); anims.push({ kind: 'burst', p, t0: performance.now() + 120, dur: 900, color: '#ff7a3d' }); }
-function nukeAnim(att, target) {
-  const a = W.provs[G.n[att].capital]?.c || W.provs[provsOf(att)[0]].c, b = W.provs[target].c;
-  anims.push({ kind: 'nuke', a, b, t0: performance.now(), dur: 1700, boom: 3400 });
+function airFx(p) {
+  for (let k = 0; k < 4; k++) { const q = [p[0] + (Math.random() - 0.5) * 8, p[1] + (Math.random() - 0.5) * 6]; anims.push({ kind: 'impact', p: q, t0: performance.now() + k * 140, dur: 1100, r: 1.6 }); scorch(q, 1.6, 6); }
 }
+function seaFx(p, win) { anims.push({ kind: 'burst', p, t0: performance.now(), dur: 900, color: win ? '#7fb8ff' : '#ff4d5e' }); }
+function missileFx(p) { anims.push({ kind: 'impact', p: p.slice(), t0: performance.now(), dur: 1500, r: 3.2 }); scorch(p, 3, 10); }
+// launches, impacts and interceptions: smoke, fire and scorched ground that stays a few days
+function launchFx(p, big) { anims.push({ kind: 'smoke', p: p.slice(), t0: performance.now(), dur: big ? 2600 : 1600, r: big ? 5 : 2.5 }); }
+function interceptFx(p, big) {
+  const q = [p[0], p[1] - (big ? 40 : 14)];
+  anims.push({ kind: 'impact', p: q, t0: performance.now(), dur: 900, r: big ? 6 : 3, air: true });
+}
+const scorches = [];
+function scorch(p, r, days) { scorches.push({ x: p[0], y: p[1], r, t: G.time, life: days }); if (scorches.length > 60) scorches.shift(); }
 function bez(a, b, c, t) { const u = 1 - t; return [u * u * a[0] + 2 * u * t * c[0] + t * t * b[0], u * u * a[1] + 2 * u * t * c[1] + t * t * b[1]]; }
 const toScreen = p => [p[0] * cam.s + cam.x, p[1] * cam.s + cam.y];
 let shake = [0, 0];
@@ -2571,6 +2594,36 @@ function drawEffects(now) {
         ctx.fillText((A.how === 'win' ? '+ ' : '− ') + P.name, x, y - 26 - t * 22);
         ctx.restore();
       }
+    } else if (A.kind === 'smoke') {
+      // launch: a plume of smoke that drifts and spreads
+      const [x, y] = toScreen(A.p), k = Math.max(cam.s, 0.6);
+      ctx.save();
+      for (let j = 0; j < 7; j++) {
+        const tt = Math.min(1, t * 1.1 + j * 0.05), r = (A.r * 0.4 + A.r * tt * (0.8 + j * 0.12)) * k;
+        ctx.globalAlpha = Math.max(0, (1 - t) * 0.55);
+        ctx.fillStyle = j < 2 && t < 0.25 ? '#ffd9a0' : '#d8d6d0';
+        ctx.beginPath(); ctx.arc(x + (j - 3) * 0.6 * k * tt + tt * 3 * k, y - j * 0.9 * k * tt, r, 0, 7); ctx.fill();
+      }
+      ctx.restore();
+    } else if (A.kind === 'impact') {
+      // fireball, shock ring and a smoke column
+      const [x, y] = toScreen(A.p), k = Math.max(cam.s, 0.7), R = A.r * k;
+      if (x < -80 || y < -80 || x > vw + 80 || y > vh + 80) continue;
+      ctx.save();
+      if (t < 0.45) {
+        const f = t / 0.45, g = ctx.createRadialGradient(x, y, 0, x, y, R * (0.8 + f * 1.4));
+        g.addColorStop(0, `rgba(255, 250, 220, ${1 - f})`); g.addColorStop(0.4, `rgba(255, 170, 60, ${0.9 * (1 - f)})`); g.addColorStop(1, 'rgba(160, 50, 20, 0)');
+        ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, R * (0.8 + f * 1.4), 0, 7); ctx.fill();
+        ctx.globalAlpha = 1 - f; ctx.strokeStyle = A.air ? '#bfefff' : 'rgba(255,240,220,.9)'; ctx.lineWidth = 1.2;
+        ctx.beginPath(); ctx.arc(x, y, R * (1 + f * 3), 0, 7); ctx.stroke();
+      }
+      if (!A.air) for (let j = 0; j < 6; j++) {
+        const tt = Math.min(1, t * 1.2), r = R * (0.5 + tt * 0.6 + j * 0.08);
+        ctx.globalAlpha = Math.max(0, 0.5 * (1 - t)) * (t < 0.15 ? t / 0.15 : 1);
+        ctx.fillStyle = j % 2 ? '#4a4540' : '#6b655d';
+        ctx.beginPath(); ctx.arc(x + Math.sin(j * 2.1) * R * 0.4, y - j * R * 0.45 * tt - tt * R, r, 0, 7); ctx.fill();
+      }
+      ctx.restore();
     } else if (A.kind === 'burst') {
       const [x, y] = toScreen(A.p);
       if (x < -60 || y < -60 || x > vw + 60 || y > vh + 60) continue;
@@ -2739,6 +2792,7 @@ function drawMap() {
   ctx.fillStyle = 'rgba(190, 255, 60, 0.22)';
   for (let i = 0; i < G.p.length; i++) if (G.p[i].rad > G.day && visible(W.provs[i].bb)) ctx.fill(W.provs[i].path, 'evenodd');
   if (phase === 'play' && selected >= 0) { ctx.fillStyle = 'rgba(255, 255, 255, 0.25)'; ctx.fill(W.provs[selected].path, 'evenodd'); }
+  if (phase === 'play') drawInstallations(s);
 
   ctx.lineJoin = 'round'; ctx.lineCap = 'round';
   for (const T of W.tiles) {
@@ -2843,7 +2897,7 @@ function drawOverlays(now) {
   }
   // the bases themselves, drawn as small installations
   // your own bases always; enemy bases only when zoomed in on them
-  if (phase === 'play') for (const c of cands) if (c.mine ? s > 0.55 : s > 2.4 && atWar(G.player, G.p[c.i].owner)) drawBases(c.i, c.mine);
+  if (phase === 'play') drawScorches();
   cands.sort((a, b) => b.pri - a.pri);
   const placed = [];
   const free = (x0, y0, w, h) => !placed.some(r => x0 < r[0] + r[2] + 2 && x0 + w + 2 > r[0] && y0 < r[1] + r[3] + 2 && y0 + h + 2 > r[1]);
@@ -2953,114 +3007,296 @@ function drawPlanning() {
 const sideColor = n => { const r = relation(n); return r === 'own' ? '#4da3ff' : r === 'war' ? '#ff4d5e' : r === 'ally' ? '#3ddc97' : '#e3e8f0'; };
 const scr = p => [p[0] * cam.s + cam.x, p[1] * cam.s + cam.y];
 
-// ---------- installations: barracks, airfields, harbours ----------
-function drawBases(i, mine) {
-  const P = G.p[i], pr = W.provs[i], k = Math.max(0.7, Math.min(1.5, cam.s * 0.8));
-  const [cx, cy] = scr(pr.c), col = W.nations[P.owner].color;
-  if (P.bar) drawBarracks(cx - 24 * k, cy + 16 * k, k, col);
-  if (P.apt) drawAirfield(cx + 24 * k, cy + 15 * k, k, P.fgt + P.bmb);
-  if (P.port && pr.pp && pr.sp) {
-    const [px, py] = scr(pr.pp), [sx, sy] = scr(pr.sp);
-    drawHarbour(px, py, Math.atan2(sy - py, sx - px), k, P.ships);
+// ---------- installations: drawn into the map itself, at map scale ----------
+// sizes are in map units (1 unit is roughly 10 km), slightly enlarged so they stay readable; they grow and shrink with the map
+const INST_MIN_S = 0.9;
+function hash01(i, k) { const x = Math.sin(i * 127.1 + k * 311.7) * 43758.5453; return x - Math.floor(x); }
+const instSpots = [];
+// fixed places inside each province for its barracks, airfield and air defence
+function spotsOf(i) {
+  if (instSpots[i]) return instSpots[i];
+  const pr = W.provs[i], [cx, cy] = pr.c;
+  const r = Math.max(6, Math.min(18, Math.min(pr.bb[2] - pr.bb[0], pr.bb[3] - pr.bb[1]) * 0.32));
+  const rot = (hash01(i, 2) - 0.5) * 1.4, rot2 = (hash01(i, 3) - 0.5) * 0.9, taken = [];
+  // the whole footprint should sit on the province's land, away from the garrison label and the other bases
+  const score = (x, y, hx, hy, a) => {
+    const c = Math.cos(a), s = Math.sin(a);
+    let n = 0;
+    for (const [u, v] of [[0, 0], [-1, -1], [1, -1], [-1, 1], [1, 1], [0, -1], [0, 1], [-1, 0], [1, 0]]) if (pointInProv(x + (u * hx) * c - (v * hy) * s, y + (u * hx) * s + (v * hy) * c, pr)) n++;
+    if (Math.hypot(x - cx, y - cy) < 4) n -= 3;
+    for (const t of taken) if (Math.hypot(x - t[0], y - t[1]) < hx + t[2]) n -= 4;
+    return n;
+  };
+  const pick = (hx, hy, a, a0) => {
+    let best = null, bs = -99;
+    for (let j = 0; j < 12; j++) for (const k of [1, 0.7, 0.45, 1.3]) {
+      const an = a0 + j * Math.PI / 6, x = cx + Math.cos(an) * r * k, y = cy + Math.sin(an) * r * k, sc = score(x, y, hx, hy, a);
+      if (sc > bs) { bs = sc; best = [x, y]; }
+      if (sc >= 9) { taken.push([x, y, hx]); return best; }
+    }
+    taken.push([best[0], best[1], hx]);
+    return best;
+  };
+  const base = hash01(i, 1) * Math.PI * 2;
+  const apt = pick(6.4, 2.4, rot, base), bar = pick(3.8, 2.8, rot2, base + 2.3), aa = pick(1.8, 1.8, 0, base + 4.1);
+  return (instSpots[i] = { bar, apt, aa, rot, rot2 });
+}
+const hair = w => Math.max(w, 0.6 / (cam.s * dpr));   // lines never thinner than a device pixel
+function groundPatch(x, y, rx, ry, col) {
+  ctx.save(); ctx.translate(x, y); ctx.scale(1, ry / rx);
+  const g = ctx.createRadialGradient(0, 0, rx * 0.35, 0, 0, rx);
+  g.addColorStop(0, col); g.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, 0, rx, 0, 7); ctx.fill(); ctx.restore();
+}
+// a flat-roofed building with its shadow (sun from the north-west)
+function building(x, y, w, h, ht, col) {
+  const o = ht * 0.35;
+  ctx.fillStyle = 'rgba(8, 10, 8, 0.5)'; ctx.fillRect(x - w / 2 + o, y - h / 2 + o, w, h);
+  ctx.fillStyle = col; ctx.fillRect(x - w / 2, y - h / 2, w, h);
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.16)'; ctx.fillRect(x - w / 2, y - h / 2, w, h * 0.45);
+}
+function drawInstallations(s) {
+  if (s < INST_MIN_S) return;
+  const me = G.player;
+  ctx.save();
+  ctx.globalAlpha = Math.min(1, (s - INST_MIN_S) / 0.4);
+  for (let i = 0; i < W.provs.length; i++) {
+    const P = G.p[i], pr = W.provs[i];
+    if (!(P.bar || P.apt || P.port || P.aa || P.abm) || !visible(pr.bb)) continue;
+    const o = P.owner, known = o === me || allied(me, o) || atWar(me, o) || hasIntel(o);
+    if (!known && s < 2.6) continue;
+    const sp = spotsOf(i);
+    if (P.bar) drawBarracksW(sp.bar, sp.rot2, P, known);
+    if (P.apt) drawAirfieldW(sp.apt, sp.rot, P, known);
+    if (P.port && pr.pp && pr.sp) drawHarbourW(pr.pp, pr.sp, P, known);
+    if (P.aa || P.abm) drawAirDefW(sp.aa, P);
   }
+  ctx.restore();
 }
-function drawBarracks(x, y, k, col) {
-  ctx.save(); ctx.translate(x, y); ctx.scale(k, k);
-  ctx.shadowColor = 'rgba(0,0,0,.55)'; ctx.shadowBlur = 4;
-  roundRect(-12, -7, 24, 14, 2); ctx.fillStyle = 'rgba(58, 64, 52, 0.95)'; ctx.fill();
-  ctx.shadowBlur = 0;
-  ctx.strokeStyle = 'rgba(210, 205, 185, 0.55)'; ctx.lineWidth = 0.8; ctx.stroke();
-  for (const bx of [-10, -2.5, 5]) {
-    ctx.fillStyle = '#d9d1b8'; ctx.fillRect(bx, -4.5, 6, 9);
-    ctx.fillStyle = '#8e8573'; ctx.fillRect(bx, -4.5, 6, 2);
+function drawAirfieldW([x, y], rot, P, known) {
+  const L = 11, hw = 0.36, ppu = cam.s * dpr;
+  ctx.save(); ctx.translate(x, y); ctx.rotate(rot);
+  groundPatch(0, 1.2, 8.5, 4.2, 'rgba(160, 152, 128, 0.5)');
+  ctx.fillStyle = 'rgba(118, 128, 92, 0.55)'; ctx.fillRect(-L / 2 - 0.7, -1.2, L + 1.4, 2.4);
+  // runway, taxiway, apron
+  ctx.fillStyle = '#3a3d41'; ctx.fillRect(-L / 2, -hw, L, hw * 2);
+  ctx.strokeStyle = '#5a5d60'; ctx.lineWidth = 0.24;
+  ctx.beginPath(); ctx.moveTo(-L / 2 + 0.6, 0); ctx.lineTo(-L / 2 + 0.6, 1.3); ctx.lineTo(L / 2 - 0.6, 1.3); ctx.lineTo(L / 2 - 0.6, 0); ctx.stroke();
+  ctx.fillStyle = '#8c8e89'; ctx.fillRect(-3.4, 1.42, 6.8, 1.7);
+  if (ppu > 2.4) {
+    ctx.fillStyle = 'rgba(238, 238, 232, 0.85)';
+    for (let d = -L / 2 + 1.3; d < L / 2 - 1.3; d += 0.9) ctx.fillRect(d, -0.03, 0.45, 0.06);
+    for (const e of [-1, 1]) for (let k = -3; k <= 3; k++) ctx.fillRect(e * (L / 2 - 0.4) - 0.16, k * 0.09 - 0.025, 0.32, 0.05);
   }
-  ctx.strokeStyle = '#e8e8e8'; ctx.lineWidth = 0.9;
-  ctx.beginPath(); ctx.moveTo(-12, -7); ctx.lineTo(-12, -17); ctx.stroke();
-  ctx.fillStyle = col; ctx.fillRect(-12, -17, 8, 5);
+  for (let k = 0; k < 3; k++) building(-2.6 + k * 1.75, 3.65, 1.4, 0.95, 0.6, '#a2a7aa');
+  building(4.1, 2.0, 0.5, 0.5, 1.4, '#d2d5d6');
+  if (known) {
+    const n = Math.min(8, P.fgt + P.bmb);
+    for (let k = 0; k < n; k++) drawPlane(-2.9 + (k % 4) * 1.5 + (k >= 4 ? 0.75 : 0), 1.95 + (k >= 4 ? 0.75 : 0), -Math.PI / 2, k >= P.fgt ? 0.4 : 0.32, '#dcdfe2', true);
+  }
   ctx.restore();
 }
-function drawAirfield(x, y, k, planes) {
-  ctx.save(); ctx.translate(x, y); ctx.scale(k, k); ctx.rotate(-0.38);
-  ctx.shadowColor = 'rgba(0,0,0,.55)'; ctx.shadowBlur = 4;
-  roundRect(-18, -3.2, 36, 6.4, 1.5); ctx.fillStyle = '#3c414a'; ctx.fill();
-  ctx.shadowBlur = 0;
-  ctx.fillStyle = '#e9edf2';
-  for (let d = -14; d <= 12; d += 5) ctx.fillRect(d, -0.4, 2.6, 0.8);
-  ctx.fillRect(-17, -2.2, 1, 4.4); ctx.fillRect(16, -2.2, 1, 4.4);
-  ctx.fillStyle = '#5b616b'; ctx.fillRect(-9, 3.2, 15, 6);
-  ctx.fillStyle = '#d8dde4'; ctx.fillRect(7.5, 3.6, 3.5, 3.5);
-  ctx.fillStyle = '#7fb8ff'; ctx.fillRect(7.5, 3.6, 3.5, 1.2);
-  for (let j = 0; j < Math.min(3, planes); j++) drawPlane(-6 + j * 4.6, 6.2, -Math.PI / 2, 2.2, '#f2f4f7', true);
+function drawBarracksW([x, y], rot, P, known) {
+  ctx.save(); ctx.translate(x, y); ctx.rotate(rot);
+  groundPatch(0, 0, 6.2, 4.6, 'rgba(150, 138, 110, 0.5)');
+  ctx.fillStyle = 'rgba(104, 112, 82, 0.65)'; ctx.fillRect(-3.5, -2.5, 7, 5);
+  ctx.strokeStyle = 'rgba(228, 222, 200, 0.75)'; ctx.lineWidth = hair(0.08); ctx.strokeRect(-3.5, -2.5, 7, 5);
+  ctx.fillStyle = '#b5a888'; ctx.fillRect(-0.9, -1.1, 2.5, 2.1);
+  for (let k = 0; k < 4; k++) building(-2.45, -1.8 + k * 1.15, 1.5, 0.55, 0.5, '#7f8672');
+  building(2.55, -1.6, 1.1, 1.0, 0.8, '#928d7d');
+  ctx.strokeStyle = '#e8e8e8'; ctx.lineWidth = hair(0.05); ctx.beginPath(); ctx.moveTo(0.35, 0); ctx.lineTo(0.35, -0.7); ctx.stroke();
+  ctx.fillStyle = W.nations[P.owner].color; ctx.fillRect(0.35, -0.7, 0.5, 0.3);
+  if (known) {
+    const n = Math.min(8, Math.ceil(P.tnk / 10));
+    for (let k = 0; k < n; k++) drawTank(2.0 + (k % 4) * 0.42, 0.45 + Math.floor(k / 4) * 0.85, 0.3);
+    const m = Math.min(4, P.mis);
+    for (let k = 0; k < m; k++) drawTEL(-0.55 + k * 0.55, 1.75, 0.32);
+  }
   ctx.restore();
 }
-function drawHarbour(x, y, ang, k, ships) {
-  ctx.save(); ctx.translate(x, y); ctx.scale(k, k); ctx.rotate(ang);
-  ctx.shadowColor = 'rgba(0,0,0,.5)'; ctx.shadowBlur = 4;
-  ctx.fillStyle = '#6f757e'; ctx.fillRect(-7, -9, 7, 18);
-  ctx.shadowBlur = 0;
-  ctx.fillStyle = '#a3a9b2'; ctx.fillRect(0, -1.6, 14, 3.2); ctx.fillRect(0, -8, 9, 2.4);
-  ctx.strokeStyle = '#f2a33a'; ctx.lineWidth = 1.1;
-  ctx.beginPath(); ctx.moveTo(-3, 7); ctx.lineTo(-3, -1); ctx.lineTo(5, -4); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(5, -4); ctx.lineTo(5, -1); ctx.stroke();
-  ctx.fillStyle = '#c94b3c'; ctx.fillRect(-6, 2, 3, 2.4); ctx.fillStyle = '#3d7bd6'; ctx.fillRect(-6, 4.6, 3, 2.4);
-  const spots = [[7, 4.2], [7, -4.6], [14, -4.6]];
-  for (let j = 0; j < Math.min(3, ships); j++) drawShip(spots[j][0], spots[j][1], 0, 3.6, '#dfe6ee', true);
+function drawTank(x, y, s) {
+  ctx.fillStyle = 'rgba(0,0,0,0.4)'; ctx.fillRect(x - s * 0.35, y - s * 0.65, s * 0.8, s * 1.4);
+  ctx.fillStyle = '#4b5437'; ctx.fillRect(x - s * 0.45, y - s * 0.75, s * 0.9, s * 1.5);
+  ctx.fillStyle = '#626d47'; ctx.beginPath(); ctx.arc(x, y, s * 0.3, 0, 7); ctx.fill();
+  ctx.fillRect(x - s * 0.05, y - s * 1.2, s * 0.1, s * 0.9);
+}
+function drawTEL(x, y, s) {
+  ctx.fillStyle = 'rgba(0,0,0,0.4)'; ctx.fillRect(x - s * 0.2, y - s, s * 0.6, s * 2.2);
+  ctx.fillStyle = '#56603f'; ctx.fillRect(x - s * 0.3, y - s * 1.1, s * 0.6, s * 2.2);
+  ctx.fillStyle = '#dcded8'; ctx.fillRect(x - s * 0.11, y - s * 0.75, s * 0.22, s * 1.65);
+}
+function drawHarbourW(pp, sp, P, known) {
+  let dx = sp[0] - pp[0]; if (Math.abs(dx) > MW / 2) dx -= Math.sign(dx) * MW;
+  ctx.save(); ctx.translate(pp[0], pp[1]); ctx.rotate(Math.atan2(sp[1] - pp[1], dx));
+  groundPatch(-1.6, 0, 5, 4.6, 'rgba(150, 146, 136, 0.5)');
+  ctx.fillStyle = '#8a8c8b'; ctx.fillRect(-2.7, -3.3, 2.7, 6.6);
+  const cols = ['#9c5a48', '#4e6d8c', '#b08d4a', '#6b8868', '#8d8d93'];
+  for (let k = 0; k < 10; k++) { ctx.fillStyle = cols[(k * 3) % 5]; ctx.fillRect(-2.4 + (k % 2) * 0.78, -2.9 + Math.floor(k / 2) * 0.64, 0.62, 0.44); }
+  ctx.fillStyle = 'rgba(0,0,0,0.35)'; for (const py of [-2.2, 0, 2.2]) ctx.fillRect(0.1, py - 0.08, 4.2, 0.36);
+  ctx.fillStyle = '#9d9f9d'; for (const py of [-2.2, 0, 2.2]) ctx.fillRect(0, py - 0.18, 4.2, 0.36);
+  ctx.strokeStyle = '#a9a69e'; ctx.lineWidth = 0.35; ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(0, -3.5); ctx.quadraticCurveTo(5.8, -3.7, 6, -0.6); ctx.stroke();
+  ctx.strokeStyle = '#d98c2b'; ctx.lineWidth = hair(0.09);
+  for (const cy of [-1.1, 1.1]) { ctx.beginPath(); ctx.moveTo(-0.3, cy); ctx.lineTo(1.7, cy - 0.5); ctx.stroke(); }
+  if (known) {
+    const spots = [[2.3, -2.75], [2.3, -1.65], [2.3, -0.55], [2.3, 0.55], [2.3, 1.65], [2.3, 2.75]];
+    let k = 0;
+    if (P.car) drawCarrier(2.6, spots[k++][1], 0, 0.62, '#959ca3', true);
+    for (let j = 0; j < Math.min(4, P.ships) && k < 6; j++) drawShip(spots[k][0], spots[k++][1], 0, 0.5, '#959ca3', true);
+    for (let j = 0; j < Math.min(2, P.sub) && k < 6; j++) drawSub(spots[k][0], spots[k++][1], 0, 0.45, '#2a2e32', true);
+  }
   ctx.restore();
+}
+function drawAirDefW([x, y], P) {
+  ctx.save(); ctx.translate(x, y);
+  groundPatch(0, 0, 2.8, 2.8, 'rgba(146, 140, 112, 0.5)');
+  ctx.strokeStyle = 'rgba(210, 204, 178, 0.6)'; ctx.lineWidth = hair(0.08); ctx.beginPath(); ctx.arc(0, 0, 1.55, 0, 7); ctx.stroke();
+  const n = P.aa * 2 + (P.abm ? 3 : 0);
+  for (let k = 0; k < n; k++) { const a = k / n * Math.PI * 2; drawTEL(Math.cos(a) * 1.1, Math.sin(a) * 1.1, 0.28); }
+  const r = P.abm ? 0.55 : 0.35;
+  ctx.fillStyle = 'rgba(0,0,0,0.35)'; ctx.beginPath(); ctx.arc(0.15, 0.15, r, 0, 7); ctx.fill();
+  ctx.fillStyle = '#d8dad4'; ctx.beginPath(); ctx.arc(0, 0, r, 0, 7); ctx.fill();
+  ctx.restore();
+}
+// scorched ground left by bombs, missiles and nuclear strikes
+function drawScorches() {
+  for (let k = scorches.length - 1; k >= 0; k--) if (G.time - scorches[k].t > scorches[k].life) scorches.splice(k, 1);
+  for (const c of scorches) {
+    const [x, y] = scr([c.x, c.y]), r = c.r * cam.s;
+    if (r < 1.2 || x < -r || y < -r || x > vw + r || y > vh + r) continue;
+    const a = 0.55 * (1 - (G.time - c.t) / c.life);
+    const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+    g.addColorStop(0, `rgba(20, 16, 12, ${a})`); g.addColorStop(0.6, `rgba(45, 35, 25, ${a * 0.6})`); g.addColorStop(1, 'rgba(45,35,25,0)');
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.fill();
+  }
 }
 
-// ---------- silhouettes ----------
+// ---------- vehicles seen from above, in naval grey or camouflage, tinted with the side's colour ----------
+function mixColor(a, b, t) {
+  const pa = parseInt(a.slice(1), 16), pb = parseInt(b.slice(1), 16);
+  const ch = sh => Math.round(((pa >> sh) & 255) * (1 - t) + ((pb >> sh) & 255) * t);
+  return `rgb(${ch(16)}, ${ch(8)}, ${ch(0)})`;
+}
+const navyTint = col => mixColor('#8e969e', col, 0.32);
+const airTint = col => mixColor('#a9afb5', col, 0.28);
 function drawPlane(x, y, ang, s, color, flat) {
   ctx.save(); ctx.translate(x, y); ctx.rotate(ang);
-  if (!flat) { ctx.shadowColor = 'rgba(0,0,0,.6)'; ctx.shadowBlur = 5; ctx.shadowOffsetY = 3; }
-  ctx.beginPath();
-  ctx.moveTo(s * 1.25, 0);
-  ctx.lineTo(s * 0.75, -s * 0.13); ctx.lineTo(s * 0.15, -s * 0.16);
-  ctx.lineTo(-s * 0.35, -s * 1.05); ctx.lineTo(-s * 0.6, -s * 1.05); ctx.lineTo(-s * 0.35, -s * 0.16);
-  ctx.lineTo(-s * 0.85, -s * 0.13); ctx.lineTo(-s * 1.15, -s * 0.5); ctx.lineTo(-s * 1.3, -s * 0.5); ctx.lineTo(-s * 1.15, 0);
-  ctx.lineTo(-s * 1.3, s * 0.5); ctx.lineTo(-s * 1.15, s * 0.5); ctx.lineTo(-s * 0.85, s * 0.13);
-  ctx.lineTo(-s * 0.35, s * 0.16); ctx.lineTo(-s * 0.6, s * 1.05); ctx.lineTo(-s * 0.35, s * 1.05);
-  ctx.lineTo(s * 0.15, s * 0.16); ctx.lineTo(s * 0.75, s * 0.13);
-  ctx.closePath();
-  ctx.fillStyle = color; ctx.fill();
-  ctx.shadowColor = 'transparent';
-  if (!flat) { ctx.lineWidth = 0.8; ctx.strokeStyle = 'rgba(0,0,0,.55)'; ctx.stroke(); }
+  const body = () => {
+    ctx.beginPath();
+    ctx.moveTo(s * 1.3, 0);
+    ctx.lineTo(s * 0.8, -s * 0.11); ctx.lineTo(s * 0.15, -s * 0.15);
+    ctx.lineTo(-s * 0.4, -s * 1.0); ctx.lineTo(-s * 0.62, -s * 1.0); ctx.lineTo(-s * 0.38, -s * 0.15);
+    ctx.lineTo(-s * 0.9, -s * 0.12); ctx.lineTo(-s * 1.15, -s * 0.48); ctx.lineTo(-s * 1.32, -s * 0.48); ctx.lineTo(-s * 1.2, 0);
+    ctx.lineTo(-s * 1.32, s * 0.48); ctx.lineTo(-s * 1.15, s * 0.48); ctx.lineTo(-s * 0.9, s * 0.12);
+    ctx.lineTo(-s * 0.38, s * 0.15); ctx.lineTo(-s * 0.62, s * 1.0); ctx.lineTo(-s * 0.4, s * 1.0);
+    ctx.lineTo(s * 0.15, s * 0.15); ctx.lineTo(s * 0.8, s * 0.11);
+    ctx.closePath();
+  };
+  body(); ctx.fillStyle = color; ctx.fill();
+  // darker wing roots and a glass canopy
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.18)'; ctx.fillRect(-s * 0.6, -s * 0.15, s * 0.8, s * 0.3);
+  ctx.fillStyle = 'rgba(40, 60, 80, 0.85)'; ctx.beginPath(); ctx.ellipse(s * 0.62, 0, s * 0.22, s * 0.07, 0, 0, 7); ctx.fill();
+  if (!flat) { ctx.lineWidth = Math.max(0.5, s * 0.06); ctx.strokeStyle = 'rgba(15, 20, 25, 0.6)'; body(); ctx.stroke(); }
   ctx.restore();
 }
-function drawCarrier(x, y, ang, s, color) {
+// a plane's shadow on the ground, offset by its altitude
+function planeShadow(x, y, ang, s, alt) {
+  ctx.save(); ctx.globalAlpha = 0.3; drawPlane(x + alt, y + alt * 1.3, ang, s, '#000000', true); ctx.restore();
+}
+function drawCarrier(x, y, ang, s, color, flat) {
   ctx.save(); ctx.translate(x, y); ctx.rotate(ang);
-  ctx.shadowColor = 'rgba(0,0,0,.6)'; ctx.shadowBlur = 5; ctx.shadowOffsetY = 2;
-  ctx.beginPath(); ctx.moveTo(s * 1.7, -s * 0.2); ctx.lineTo(s * 1.4, -s * 0.55); ctx.lineTo(-s * 1.5, -s * 0.55); ctx.lineTo(-s * 1.6, s * 0.45); ctx.lineTo(s * 1.3, s * 0.55); ctx.closePath();
-  ctx.fillStyle = color; ctx.fill(); ctx.shadowColor = 'transparent';
-  ctx.fillStyle = 'rgba(40, 48, 60, 0.9)'; ctx.fillRect(-s * 1.3, -s * 0.38, s * 2.6, s * 0.7);
-  ctx.strokeStyle = 'rgba(255,255,255,.8)'; ctx.lineWidth = 0.7; ctx.setLineDash([s * 0.25, s * 0.2]);
-  ctx.beginPath(); ctx.moveTo(-s * 1.2, 0); ctx.lineTo(s * 1.2, 0); ctx.stroke(); ctx.setLineDash([]);
-  ctx.fillStyle = color; ctx.fillRect(s * 0.2, s * 0.32, s * 0.5, s * 0.3);
-  ctx.lineWidth = 0.8; ctx.strokeStyle = 'rgba(0,0,0,.5)'; ctx.strokeRect(-s * 1.5, -s * 0.55, s * 3, s * 1.1);
+  const deck = () => { ctx.beginPath(); ctx.moveTo(s * 1.75, -s * 0.08); ctx.lineTo(s * 1.45, -s * 0.5); ctx.lineTo(-s * 1.35, -s * 0.56); ctx.lineTo(-s * 1.6, -s * 0.2); ctx.lineTo(-s * 1.6, s * 0.4); ctx.lineTo(s * 1.2, s * 0.46); ctx.closePath(); };
+  if (!flat) { ctx.save(); ctx.translate(s * 0.15, s * 0.2); deck(); ctx.fillStyle = 'rgba(0,0,0,0.35)'; ctx.fill(); ctx.restore(); }
+  deck(); ctx.fillStyle = color; ctx.fill();
+  ctx.save(); deck(); ctx.clip(); ctx.fillStyle = 'rgba(52, 57, 63, 0.92)'; ctx.fillRect(-s * 1.55, -s * 0.45, s * 3.2, s * 0.82); ctx.restore();
+  ctx.strokeStyle = 'rgba(240, 240, 232, 0.8)'; ctx.lineWidth = Math.max(0.3, s * 0.035);
+  ctx.setLineDash([s * 0.14, s * 0.1]);
+  ctx.beginPath(); ctx.moveTo(-s * 1.4, s * 0.22); ctx.lineTo(s * 0.55, -s * 0.36); ctx.moveTo(-s * 0.2, s * 0.05); ctx.lineTo(s * 1.55, s * 0.05); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = 'rgba(0,0,0,0.4)'; ctx.fillRect(s * 0.17, s * 0.33, s * 0.5, s * 0.17);
+  ctx.fillStyle = 'rgba(214, 218, 221, 0.95)'; ctx.fillRect(s * 0.1, s * 0.27, s * 0.5, s * 0.17);
+  for (let k = 0; k < 3; k++) drawPlane(-s * 1.05 + k * s * 0.34, -s * 0.3, 0.2, s * 0.11, 'rgba(222, 226, 230, 0.9)', true);
+  ctx.lineWidth = Math.max(0.4, s * 0.05); ctx.strokeStyle = 'rgba(15, 20, 25, 0.6)'; deck(); ctx.stroke();
   ctx.restore();
 }
-function drawSub(x, y, ang, s, color) {
+function drawSub(x, y, ang, s, color, flat) {
   ctx.save(); ctx.translate(x, y); ctx.rotate(ang);
-  ctx.shadowColor = 'rgba(0,0,0,.6)'; ctx.shadowBlur = 4;
-  ctx.beginPath(); ctx.ellipse(0, 0, s * 1.4, s * 0.3, 0, 0, 7); ctx.fillStyle = color; ctx.globalAlpha = 0.85; ctx.fill();
-  ctx.globalAlpha = 1; ctx.shadowColor = 'transparent';
-  ctx.fillStyle = 'rgba(30, 36, 46, 0.95)'; ctx.fillRect(-s * 0.15, -s * 0.5, s * 0.45, s * 0.4);
-  ctx.lineWidth = 0.7; ctx.strokeStyle = 'rgba(0,0,0,.55)'; ctx.beginPath(); ctx.ellipse(0, 0, s * 1.4, s * 0.3, 0, 0, 7); ctx.stroke();
+  if (!flat) { ctx.strokeStyle = 'rgba(230, 240, 255, 0.35)'; ctx.lineWidth = Math.max(0.5, s * 0.08); ctx.beginPath(); ctx.moveTo(-s * 1.4, 0); ctx.lineTo(-s * 2.6, 0); ctx.stroke(); }
+  ctx.beginPath(); ctx.ellipse(0, 0, s * 1.4, s * 0.24, 0, 0, 7); ctx.fillStyle = color; ctx.fill();
+  ctx.fillStyle = 'rgba(15, 18, 22, 0.95)'; ctx.beginPath(); ctx.ellipse(s * 0.3, 0, s * 0.26, s * 0.1, 0, 0, 7); ctx.fill();
+  ctx.lineWidth = Math.max(0.4, s * 0.05); ctx.strokeStyle = 'rgba(200, 210, 220, 0.35)'; ctx.beginPath(); ctx.ellipse(0, 0, s * 1.4, s * 0.24, 0, 0, 7); ctx.stroke();
   ctx.restore();
 }
 function drawShip(x, y, ang, s, color, flat) {
   ctx.save(); ctx.translate(x, y); ctx.rotate(ang);
-  if (!flat) { ctx.shadowColor = 'rgba(0,0,0,.6)'; ctx.shadowBlur = 5; ctx.shadowOffsetY = 2; }
-  ctx.beginPath();
-  ctx.moveTo(s * 1.5, 0); ctx.quadraticCurveTo(s * 0.9, -s * 0.42, s * 0.3, -s * 0.42);
-  ctx.lineTo(-s * 1.3, -s * 0.36); ctx.lineTo(-s * 1.3, s * 0.36); ctx.lineTo(s * 0.3, s * 0.42);
-  ctx.quadraticCurveTo(s * 0.9, s * 0.42, s * 1.5, 0);
-  ctx.fillStyle = color; ctx.fill();
-  ctx.shadowColor = 'transparent';
-  ctx.fillStyle = 'rgba(40, 48, 60, 0.85)';
-  ctx.fillRect(-s * 0.55, -s * 0.2, s * 0.75, s * 0.4);
-  ctx.fillRect(s * 0.45, -s * 0.08, s * 0.4, s * 0.16);
-  if (!flat) { ctx.lineWidth = 0.8; ctx.strokeStyle = 'rgba(0,0,0,.5)'; ctx.beginPath(); ctx.moveTo(s * 1.5, 0); ctx.quadraticCurveTo(s * 0.9, -s * 0.42, s * 0.3, -s * 0.42); ctx.lineTo(-s * 1.3, -s * 0.36); ctx.lineTo(-s * 1.3, s * 0.36); ctx.lineTo(s * 0.3, s * 0.42); ctx.quadraticCurveTo(s * 0.9, s * 0.42, s * 1.5, 0); ctx.stroke(); }
+  const hull = () => { ctx.beginPath(); ctx.moveTo(s * 1.6, 0); ctx.quadraticCurveTo(s * 1.1, -s * 0.36, s * 0.4, -s * 0.38); ctx.lineTo(-s * 1.25, -s * 0.32); ctx.quadraticCurveTo(-s * 1.38, 0, -s * 1.25, s * 0.32); ctx.lineTo(s * 0.4, s * 0.38); ctx.quadraticCurveTo(s * 1.1, s * 0.36, s * 1.6, 0); ctx.closePath(); };
+  if (!flat) { ctx.save(); ctx.translate(s * 0.14, s * 0.18); hull(); ctx.fillStyle = 'rgba(0,0,0,0.35)'; ctx.fill(); ctx.restore(); }
+  hull(); ctx.fillStyle = color; ctx.fill();
+  ctx.lineWidth = Math.max(0.3, s * 0.06); ctx.strokeStyle = 'rgba(18, 22, 26, 0.7)'; ctx.stroke();
+  // gun turrets fore and aft, superstructure with its bridge, helicopter deck at the stern
+  ctx.fillStyle = 'rgba(58, 64, 70, 0.95)';
+  ctx.beginPath(); ctx.arc(s * 0.95, 0, s * 0.15, 0, 7); ctx.fill(); ctx.fillRect(s * 0.95, -s * 0.03, s * 0.36, s * 0.06);
+  ctx.beginPath(); ctx.arc(-s * 0.62, 0, s * 0.12, 0, 7); ctx.fill();
+  ctx.fillStyle = 'rgba(0,0,0,0.3)'; ctx.fillRect(-s * 0.28, -s * 0.16, s * 0.85, s * 0.44);
+  ctx.fillStyle = 'rgba(226, 229, 231, 0.95)'; ctx.fillRect(-s * 0.35, -s * 0.22, s * 0.85, s * 0.44);
+  ctx.fillStyle = 'rgba(66, 72, 78, 0.95)'; ctx.fillRect(s * 0.25, -s * 0.13, s * 0.18, s * 0.26);
+  ctx.strokeStyle = 'rgba(238, 238, 232, 0.6)'; ctx.lineWidth = Math.max(0.3, s * 0.035); ctx.beginPath(); ctx.arc(-s * 1.0, 0, s * 0.16, 0, 7); ctx.stroke();
   ctx.restore();
+}
+// screen size of a vehicle: its map size at the current zoom, kept within readable limits
+const vSize = (world, lo, hi) => Math.max(lo, Math.min(hi, world * cam.s));
+// ---------- missiles: a body, a flame and a trail of smoke along a ballistic arc ----------
+function missileGeo(m, f) {
+  const a = m.pts[0], b = m.pts[1].slice();
+  if (Math.abs(b[0] - a[0]) > MW / 2) b[0] += b[0] > a[0] ? -MW : MW;
+  const len = Math.hypot(b[0] - a[0], b[1] - a[1]);
+  const h = Math.min(m.nuke ? 220 : 70, len * (m.nuke ? 0.3 : 0.2));
+  const gx = a[0] + (b[0] - a[0]) * f, gy = a[1] + (b[1] - a[1]) * f, alt = h * 4 * f * (1 - f);
+  return { gx, gy, x: gx, y: gy - alt, alt };
+}
+function drawMissile(m, now) {
+  const f = Math.max(0, Math.min(1, (G.time - m.dep) / (m.arr - m.dep)));
+  const p = missileGeo(m, f), q = missileGeo(m, Math.min(1, f + 0.01));
+  // the smoke trail along the path already flown: it widens and fades with age
+  const life = m.nuke ? 1.4 : 0.8, wf = life / (m.arr - m.dep), N = 28;
+  ctx.save();
+  // a continuous vapour line, then puffs of smoke over it
+  ctx.lineCap = 'round';
+  for (let j = N; j >= 1; j--) {
+    const f0 = f - wf * j / N, f1 = f - wf * (j - 1) / N;
+    if (f1 <= 0) continue;
+    const d0 = missileGeo(m, Math.max(0, f0)), d1 = missileGeo(m, f1), [x0, y0] = scr([d0.x, d0.y]), [x1, y1] = scr([d1.x, d1.y]);
+    ctx.globalAlpha = 0.7 * (1 - j / N); ctx.strokeStyle = '#f2f0ea'; ctx.lineWidth = (m.nuke ? 3 : 2) * (1 + j / N);
+    ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke();
+  }
+  for (let j = N; j >= 1; j--) {
+    const ff = f - wf * j / N;
+    if (ff < 0) continue;
+    const age = j / N, d = missileGeo(m, ff), [x, y] = scr([d.x, d.y]);
+    const r = Math.max(m.nuke ? 2.6 : 1.8, (m.nuke ? 1.2 : 0.7) * cam.s) * (0.6 + age * 2.6);
+    ctx.globalAlpha = 0.32 * (1 - age) + 0.04; ctx.fillStyle = age < 0.1 ? '#ffe6b8' : '#e8e6e1';
+    ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.fill();
+  }
+  ctx.restore();
+  const [gx, gy] = scr([p.gx, p.gy]), [x, y] = scr([p.x, p.y]), [x2, y2] = scr([q.x, q.y]);
+  const ang = Math.atan2(y2 - y, x2 - x), L = vSize(m.nuke ? 6 : 3.5, m.nuke ? 22 : 15, m.nuke ? 40 : 28);
+  // shadow on the ground, then the flame and the body
+  ctx.save(); ctx.globalAlpha = 0.25; ctx.fillStyle = '#000'; ctx.beginPath(); ctx.ellipse(gx, gy, L * 0.45, L * 0.14, ang, 0, 7); ctx.fill(); ctx.restore();
+  ctx.save(); ctx.translate(x, y); ctx.rotate(ang);
+  const fl = L * (0.55 + 0.15 * Math.sin(now / 40));
+  const g = ctx.createLinearGradient(-L * 0.5, 0, -L * 0.5 - fl, 0);
+  g.addColorStop(0, 'rgba(255, 250, 220, 0.95)'); g.addColorStop(0.4, 'rgba(255, 170, 60, 0.85)'); g.addColorStop(1, 'rgba(255, 90, 30, 0)');
+  ctx.fillStyle = g; ctx.beginPath(); ctx.moveTo(-L * 0.5, -L * 0.07); ctx.lineTo(-L * 0.5 - fl, 0); ctx.lineTo(-L * 0.5, L * 0.07); ctx.fill();
+  ctx.fillStyle = '#5c6268'; ctx.beginPath(); ctx.moveTo(-L * 0.5, -L * 0.2); ctx.lineTo(-L * 0.28, -L * 0.07); ctx.lineTo(-L * 0.28, L * 0.07); ctx.lineTo(-L * 0.5, L * 0.2); ctx.fill();
+  ctx.fillStyle = m.nuke ? '#f2f2ee' : '#dfe2e4'; ctx.fillRect(-L * 0.5, -L * 0.075, L * 0.82, L * 0.15);
+  ctx.fillStyle = m.nuke ? '#c23b2e' : '#4b5157'; ctx.beginPath(); ctx.moveTo(L * 0.32, -L * 0.075); ctx.lineTo(L * 0.5, 0); ctx.lineTo(L * 0.32, L * 0.075); ctx.fill();
+  ctx.lineWidth = 0.6; ctx.strokeStyle = 'rgba(0,0,0,0.5)'; ctx.strokeRect(-L * 0.5, -L * 0.075, L * 0.82, L * 0.15);
+  ctx.restore();
+  if (m.nuke) {
+    const [tx, ty] = scr(m.pts[1]);
+    ctx.save(); ctx.strokeStyle = 'rgba(212, 242, 90, 0.9)'; ctx.lineWidth = 1.5; ctx.setLineDash([3, 3]);
+    ctx.beginPath(); ctx.arc(tx, ty, 14 + 4 * Math.sin(now / 120), 0, 7); ctx.stroke(); ctx.restore();
+  }
 }
 // NATO-style counter for a land army
 function drawCounter(x, y, col, label, sel, st = 0, tanks = 0) {
@@ -3095,16 +3331,21 @@ function subSeen(u) {
   return G.units.some(v => v.owner === G.player && v.kind === 'fleet' && ptDist([v.x, v.y], p) < 45) || provsOf(G.player).some(i => W.provs[i].sp && ptDist(W.provs[i].sp, p) < 30);
 }
 const unitVisible = u => u.kind !== 'fleet' || u.owner === G.player || u.n + (u.c || 0) > 0 || subSeen(u);
+// a fleet in formation, sized with the map: carrier in the middle, escorts around it, submarine behind
 function drawFleet(x, y, ang, F, col, seen) {
   const n = F.n, c = F.c || 0, sb = seen ? F.s || 0 : 0;
-  const sz = Math.max(5, Math.min(9, 4 + (n + c + sb) * 0.4));
+  const sz = vSize(1.6, 5, 14), hull = navyTint(col);
   let k = 0;
-  const spots = [[0, 0], [9, 7], [-9, 7], [0, 13]];
-  const at = () => { const p = spots[Math.min(k++, 3)]; const ca = Math.cos(ang), sa = Math.sin(ang); return [x - p[1] * ca + p[0] * -sa, y - p[1] * sa + p[0] * ca]; };
-  if (c) { const p = at(); drawCarrier(p[0], p[1], ang, sz * 1.15, col); }
-  if (n) { const p = at(); drawShip(p[0], p[1], ang, sz, col); }
-  if (n > 1) { const p = at(); drawShip(p[0], p[1], ang, sz * 0.8, col); }
-  if (sb) { const p = at(); drawSub(p[0], p[1], ang, sz * 0.9, col); }
+  const spots = [[0, 0], [1.6, 1.4], [-1.6, 1.4], [0, 3.2], [1.6, -1.6]];
+  const ca = Math.cos(ang), sa = Math.sin(ang);
+  const at = () => { const p = spots[Math.min(k++, 4)]; return [x - p[1] * sz * ca - p[0] * sz * sa, y - p[1] * sz * sa + p[0] * sz * ca]; };
+  // the side's colour as a soft halo on the water, so friend and foe stay easy to tell apart
+  ctx.save(); ctx.globalAlpha = 0.28; ctx.fillStyle = col; ctx.beginPath(); ctx.ellipse(x - ca * sz, y - sa * sz, sz * 3, sz * 2.2, ang, 0, 7); ctx.fill(); ctx.restore();
+  if (c) { const p = at(); drawCarrier(p[0], p[1], ang, sz * 1.25, hull); }
+  if (n) { const p = at(); drawShip(p[0], p[1], ang, sz, hull); }
+  if (n > 1) { const p = at(); drawShip(p[0], p[1], ang, sz * 0.85, hull); }
+  if (n > 2 && c) { const p = at(); drawShip(p[0], p[1], ang, sz * 0.8, hull); }
+  if (sb) { const p = at(); drawSub(p[0], p[1], ang, sz * 0.9, '#2b3035'); }
   return n + c + sb;
 }
 function drawUnits() {
@@ -3117,9 +3358,10 @@ function drawUnits() {
     if (!show || !unitVisible(u)) continue;
     if (u.kind === 'army') drawCounter(x, y, col, fmt(u.n) + (u.t ? ' · ' + u.t + 'c' : ''), sel, stars(u.xp), u.t);
     else {
-      if (sel) { ctx.beginPath(); ctx.arc(x, y, 18, 0, 7); ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.stroke(); }
+      const sz = vSize(1.6, 5, 14);
+      if (sel) { ctx.beginPath(); ctx.arc(x, y, sz * 3.6, 0, 7); ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.stroke(); }
       const shown = drawFleet(x, y, -0.5, u, col, subSeen(u));
-      unitLabel(String(shown) + (stars(u.xp) ? ' ' + '★'.repeat(stars(u.xp)) : '') + ((u.af || 0) + (u.ab || 0) ? ' ✈' + ((u.af || 0) + (u.ab || 0)) : ''), x, y - 17);
+      unitLabel(String(shown) + (stars(u.xp) ? ' ' + '★'.repeat(stars(u.xp)) : '') + ((u.af || 0) + (u.ab || 0) ? ' ✈' + ((u.af || 0) + (u.ab || 0)) : ''), x, y - sz * 3 - 8);
     }
   }
 }
@@ -3136,23 +3378,10 @@ function drawMarches(now) {
     const mine = m.owner === G.player, col = sideColor(m.owner);
     if (!mine && relation(m.owner) === 'none' && s < 0.8) continue;
     if (m.type === 'sea' && !mine && !m.ships && !m.cars && !subSeen({ owner: m.owner, kind: 'fleet', s: m.subs, x: pos.x, y: pos.y })) continue;
+    if (m.type === 'missile' && !mine && relation(m.owner) === 'none' && relation(G.p[m.target] ? G.p[m.target].owner : -1) === 'none' && !m.nuke && s < 1) continue;
     drawn++;
     if (m.id === selMove) { ctx.beginPath(); ctx.arc(x, y, 19, 0, 7); ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.6; ctx.stroke(); }
-    if (m.type === 'missile') {
-      const a = scr(m.pts[0]), len = Math.hypot(end[0] - a[0], end[1] - a[1]);
-      const ctl = [(a[0] + end[0]) / 2, Math.min(a[1], end[1]) - Math.max(40, len * 0.35)];
-      const f = Math.max(0, Math.min(1, (G.time - m.dep) / (m.arr - m.dep))), tail = Math.max(0, f - 0.25);
-      ctx.save(); ctx.lineCap = 'round';
-      for (let j = 0; j < 10; j++) {
-        const q0 = bez(a, end, ctl, tail + (f - tail) * j / 10), q1 = bez(a, end, ctl, tail + (f - tail) * (j + 1) / 10);
-        ctx.strokeStyle = `rgba(255, ${200 + j * 5}, 150, ${j / 10})`; ctx.lineWidth = 1 + j * 0.2;
-        ctx.beginPath(); ctx.moveTo(q0[0], q0[1]); ctx.lineTo(q1[0], q1[1]); ctx.stroke();
-      }
-      const p = bez(a, end, ctl, f);
-      ctx.fillStyle = '#fff'; ctx.shadowColor = '#ffd27a'; ctx.shadowBlur = 10; ctx.beginPath(); ctx.arc(p[0], p[1], 2.6, 0, 7); ctx.fill();
-      ctx.restore();
-      continue;
-    }
+    if (m.type === 'missile') { drawMissile(m, now); continue; }
     // remaining route
     ctx.save();
     ctx.strokeStyle = col; ctx.globalAlpha = mine ? 0.85 : 0.5; ctx.lineWidth = mine ? 2.2 : 1.6;
@@ -3162,29 +3391,42 @@ function drawMarches(now) {
     ctx.stroke();
     ctx.restore();
     if (m.type === 'air') {
-      // contrail, then the planes in formation
+      // a formation of up to three planes, each with twin contrails and its shadow on the ground
+      const n = m.fgt + m.bmb, sz = vSize(1.5, 5.5, 13), ca = Math.cos(pos.ang), sa = Math.sin(pos.ang);
+      const slots = [[0, 0], [-1.3, 1.1], [-1.3, -1.1]].slice(0, Math.min(3, n));
+      const alt = sz * 1.4;
+      for (const [b, c] of slots) planeShadow(x + (b * ca - c * sa) * sz * 1.6, y + (b * sa + c * ca) * sz * 1.6, pos.ang, sz * (b ? 0.85 : 1), alt);
       ctx.save();
-      const g = ctx.createLinearGradient(x, y, x - Math.cos(pos.ang) * 34, y - Math.sin(pos.ang) * 34);
-      g.addColorStop(0, 'rgba(255,255,255,0.7)'); g.addColorStop(1, 'rgba(255,255,255,0)');
-      ctx.strokeStyle = g; ctx.lineWidth = 2;
-      ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x - Math.cos(pos.ang) * 34, y - Math.sin(pos.ang) * 34); ctx.stroke();
+      for (const [b, c] of slots) {
+        const px = x + (b * ca - c * sa) * sz * 1.6, py = y + (b * sa + c * ca) * sz * 1.6;
+        for (const w of [-0.5, 0.5]) {
+          const ox = px - sa * w * sz - ca * sz, oy = py + ca * w * sz - sa * sz;
+          const g = ctx.createLinearGradient(ox, oy, ox - ca * sz * 6, oy - sa * sz * 6);
+          g.addColorStop(0, 'rgba(255,255,255,0.6)'); g.addColorStop(1, 'rgba(255,255,255,0)');
+          ctx.strokeStyle = g; ctx.lineWidth = Math.max(0.8, sz * 0.14);
+          ctx.beginPath(); ctx.moveTo(ox, oy); ctx.lineTo(ox - ca * sz * 6, oy - sa * sz * 6); ctx.stroke();
+        }
+      }
       ctx.restore();
-      const n = m.fgt + m.bmb;
-      drawPlane(x, y, pos.ang, 8, col);
-      if (n > 1) { const bx = -Math.cos(pos.ang) * 10, by = -Math.sin(pos.ang) * 10, px = -Math.sin(pos.ang) * 9, py = Math.cos(pos.ang) * 9; drawPlane(x + bx + px, y + by + py, pos.ang, 6, col); if (n > 2) drawPlane(x + bx - px, y + by - py, pos.ang, 6, col); }
-      if (mine || s > 0.9) unitLabel(String(n), x, y - 16);
+      for (const [b, c] of slots) drawPlane(x + (b * ca - c * sa) * sz * 1.6, y + (b * sa + c * ca) * sz * 1.6, pos.ang, sz * (b ? 0.85 : 1) * (m.bmb > m.fgt ? 1.2 : 1), airTint(col));
+      if (mine || s > 0.9) unitLabel(String(n), x, y - sz * 2.4 - 6);
     } else if (m.type === 'sea') {
-      // wake behind the stern
-      ctx.save(); ctx.strokeStyle = 'rgba(230, 240, 255, 0.55)'; ctx.lineWidth = 1.2;
-      const bx = x - Math.cos(pos.ang) * 10, by = y - Math.sin(pos.ang) * 10;
+      // a V-shaped wake behind the stern, scaled with the ship
+      const sz = vSize(1.6, 5, 14), ca = Math.cos(pos.ang), sa = Math.sin(pos.ang);
+      ctx.save(); ctx.lineCap = 'round';
+      const bx = x - ca * sz * 1.4, by = y - sa * sz * 1.4;
+      const wk = ctx.createLinearGradient(bx, by, bx - ca * sz * 4, by - sa * sz * 4);
+      wk.addColorStop(0, 'rgba(240, 248, 255, 0.55)'); wk.addColorStop(1, 'rgba(240, 248, 255, 0)');
+      ctx.strokeStyle = wk; ctx.lineWidth = Math.max(0.8, sz * 0.12);
       for (const sgn of [-1, 1]) {
         ctx.beginPath(); ctx.moveTo(bx, by);
-        ctx.lineTo(bx - Math.cos(pos.ang) * 18 - Math.sin(pos.ang) * 7 * sgn, by - Math.sin(pos.ang) * 18 + Math.cos(pos.ang) * 7 * sgn); ctx.stroke();
+        ctx.lineTo(bx - ca * sz * 4 - sa * sz * 1.1 * sgn, by - sa * sz * 4 + ca * sz * 1.1 * sgn); ctx.stroke();
       }
+      ctx.lineWidth = Math.max(1, sz * 0.3); ctx.beginPath(); ctx.moveTo(bx, by); ctx.lineTo(bx - ca * sz * 3, by - sa * sz * 3); ctx.stroke();
       ctx.restore();
       const seen = mine || subSeen({ owner: m.owner, kind: 'fleet', s: m.subs, x: pos.x, y: pos.y });
       const shown = drawFleet(x, y, pos.ang, { n: m.ships, s: m.subs, c: m.cars }, col, seen);
-      if (mine || s > 0.9) unitLabel(String(shown), x, y - 17);
+      if (mine || s > 0.9) unitLabel(String(shown), x, y - vSize(1.6, 5, 14) * 2 - 8);
     } else {
       drawCounter(x, y, col, mine || s > 0.9 ? fmt(m.amount) : '', false, stars(m.xp), m.tanks);
       // a little arrow showing the direction of march
@@ -4071,7 +4313,7 @@ function showMenu() {
       <li>Il tempo scorre da solo. In basso a destra metti in pausa o acceleri (1×, 2×, 4×). Ogni giorno incassi la rendita meno il mantenimento delle forze.</li>
       <li>Tocca una tua provincia per arruolare fanteria, caccia, bombardieri e navi (solo sulla costa), migliorare l'economia o fortificarla.</li>
       <li>Truppe di terra: le uniche che conquistano. Le mandi in un punto qualsiasi: dove arrivano restano come armata sulla mappa, che puoi toccare e muovere di nuovo.</li>
-      <li>Lanciamissili: si costruiscono in caserma e colpiscono province o unità nemiche nel loro raggio.</li>
+      <li>Lanciamissili: si costruiscono in caserma e colpiscono province o unità nemiche nel loro raggio. Un missile impiega qualche giorno ad arrivare; uno nucleare intercontinentale qualche giorno in più, e il bersaglio viene avvisato.</li>
       <li>Aviazione: bombarda le province nemiche entro il raggio, indebolendone truppe e difese. I caccia scortano e difendono.</li>
       <li>Marina: attacca le flotte nemiche, blocca i porti (rendita dimezzata), sostiene gli sbarchi e impedisce al nemico di attraversare il mare.</li>
       <li>Province staccate dalla capitale restano senza rifornimenti e perdono truppe.</li>
