@@ -24,7 +24,7 @@ ${rest}
 </html>
 `;
 fs.writeFileSync(path.join(out, 'index.html'), html);
-for (const f of ['world.js', 'earth.jpg', 'manifest.webmanifest', 'sw.js']) fs.copyFileSync(path.join(src, f), path.join(out, f));
+for (const f of ['world.js', 'earth.jpg', 'night.jpg', 'manifest.webmanifest', 'sw.js']) fs.copyFileSync(path.join(src, f), path.join(out, f));
 for (const d of ['tiles', 'icons']) fs.cpSync(path.join(src, d), path.join(out, d), { recursive: true });
 fs.writeFileSync(path.join(out, '.nojekyll'), '');
 console.log('site written to', out);

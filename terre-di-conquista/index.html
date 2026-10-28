@@ -315,6 +315,17 @@ input.wide { width: 100%; accent-color: var(--accent); }
 .drow.tech.have .rv { color: var(--peace); }
 .rescard .row { gap: 6px; } .rescard .btn.sm { margin-left: 0; flex: 1; }
 .spy { display: grid; gap: 6px; }
+.dcl { font-weight: 800; letter-spacing: .02em; }
+#banner.defcon { border-top-width: 3px; }
+#banner.defcon small { display: block; text-align: center; }
+.defconbox { display: grid; gap: 4px; padding: 12px 14px; border-radius: 14px; border: 1.5px solid; background: rgba(255,255,255,.04); }
+.defconbox b { font-family: var(--display); font-size: 22px; }
+#modeSeg { margin-bottom: -6px; }
+#duelBar { position: fixed; z-index: 6; left: 50%; transform: translateX(-50%); top: calc(env(safe-area-inset-top, 0px) + 62px); display: flex; align-items: center; gap: 8px; padding: 7px 12px; border-radius: 999px; font-size: 12.5px; white-space: nowrap; max-width: calc(100vw - 24px); }
+#duelBar .db { width: 54px; height: 6px; border-radius: 3px; background: rgba(255,255,255,.12); overflow: hidden; display: inline-block; }
+#duelBar .db i { display: block; height: 100%; }
+#duelBar .vs { color: var(--muted); font-weight: 700; }
+#duelBar:not([hidden]) ~ #toasts { top: calc(env(safe-area-inset-top, 0px) + 104px); }
 #intro .seg button { padding: 8px 4px; font-size: 13px; }
 .goal { display: grid; gap: 6px; padding: 10px 12px; border-radius: 12px; background: rgba(255,255,255,.04); }
 .goal .ch { gap: 8px; flex-wrap: nowrap; } .goal .ch b { font-size: 14px; } .goal .sub { flex: 1; min-width: 0; font-size: 12px; }
@@ -377,6 +388,7 @@ input.wide { width: 100%; accent-color: var(--accent); }
 <button class="icon-btn glass" id="multiBtn" aria-label="Selezione multipla" hidden><svg><use href="#i-multi"/></svg></button>
 
 <div id="banner" hidden></div>
+<div id="duelBar" class="glass" hidden></div>
 <div id="toasts" aria-live="polite"></div>
 
 <section id="panel" class="glass" hidden></section>
@@ -390,6 +402,7 @@ input.wide { width: 100%; accent-color: var(--accent); }
 <section id="intro" class="glass">
   <div class="eyebrow" id="introEye">Strategia in tempo reale · Mondo 2026</div>
   <h1>Terre di Conquista</h1>
+  <div class="seg" id="modeSeg"></div>
   <div class="seg" id="scenSeg"></div>
   <p id="scenDesc">Il mondo di oggi in oltre mille province. Scegli un paese, fai crescere l'economia, arruola eserciti e conquista il pianeta.</p>
   <div class="pick" id="pickInfo"><span class="sub">Tocca un paese sulla mappa per sceglierlo. Pizzica per lo zoom.</span></div>
@@ -491,6 +504,46 @@ const RES_NAMES = { oil: 'Petrolio', steel: 'Acciaio', food: 'Cibo' };
 const BASE_PRICE = { oil: 4, steel: 3, food: 2 };
 const STEEL_USE = { tnk: 5, fgt: 4, bmb: 5, ship: 8, sub: 10, car: 30, mis: 2 };
 const TAX = [{ name: 'Basse', mult: 0.8, stab: 12 }, { name: 'Normali', mult: 1, stab: 0 }, { name: 'Alte', mult: 1.25, stab: -14 }];
+// leaders: every nation has a ruler with a name in its own language and a temperament that drives its choices
+const NAMES = {
+  it: [['Marco', 'Giulia', 'Lorenzo', 'Elena', 'Matteo', 'Chiara', 'Giovanni', 'Sara'], ['Bianchi', 'Ferraro', 'Galli', 'Moretti', 'Conti', 'Ricci', 'Lombardi', 'Marini']],
+  es: [['Carlos', 'Lucía', 'Javier', 'María', 'Diego', 'Sofía', 'Andrés', 'Valeria'], ['García', 'Martínez', 'López', 'Romero', 'Navarro', 'Ortega', 'Castillo', 'Herrera']],
+  pt: [['João', 'Ana', 'Pedro', 'Beatriz', 'Rafael', 'Mariana', 'Tiago', 'Luísa'], ['Silva', 'Santos', 'Oliveira', 'Costa', 'Pereira', 'Almeida', 'Ferreira', 'Rocha']],
+  fr: [['Jean', 'Claire', 'Louis', 'Camille', 'Antoine', 'Juliette', 'Hugo', 'Margaux'], ['Martin', 'Bernard', 'Durand', 'Lefèvre', 'Moreau', 'Laurent', 'Girard', 'Fontaine']],
+  de: [['Lukas', 'Anna', 'Felix', 'Katharina', 'Jonas', 'Lena', 'Maximilian', 'Sophie'], ['Müller', 'Schmidt', 'Weber', 'Wagner', 'Becker', 'Hoffmann', 'Krüger', 'Richter']],
+  en: [['James', 'Emily', 'William', 'Charlotte', 'Thomas', 'Olivia', 'Henry', 'Grace'], ['Smith', 'Taylor', 'Walker', 'Harrison', 'Bennett', 'Carter', 'Hughes', 'Mitchell']],
+  nordic: [['Erik', 'Ingrid', 'Lars', 'Astrid', 'Nils', 'Freya', 'Sven', 'Maja'], ['Andersen', 'Lindqvist', 'Johansson', 'Nielsen', 'Berg', 'Halvorsen', 'de Vries', 'Dahl']],
+  slav: [['Ivan', 'Olga', 'Dmitri', 'Natalia', 'Sergei', 'Anna', 'Pavel', 'Irina'], ['Volkov', 'Petrov', 'Sokolov', 'Morozov', 'Kovalenko', 'Novak', 'Lebedev', 'Orlov']],
+  gr: [['Nikos', 'Eleni', 'Giorgos', 'Maria', 'Kostas', 'Sofia', 'Dimitris', 'Katerina'], ['Papadopoulos', 'Georgiou', 'Nikolaou', 'Ioannou', 'Konstantinou', 'Pappas', 'Vlachos', 'Antoniou']],
+  tr: [['Mehmet', 'Ayşe', 'Emre', 'Elif', 'Mustafa', 'Zeynep', 'Burak', 'Selin'], ['Yılmaz', 'Kaya', 'Demir', 'Şahin', 'Çelik', 'Aydın', 'Öztürk', 'Arslan']],
+  ar: [['Ahmed', 'Fatima', 'Omar', 'Layla', 'Khalid', 'Noor', 'Youssef', 'Amina'], ['Al-Hassan', 'Haddad', 'Al-Rashid', 'Nasser', 'Khalil', 'Mansour', 'Saleh', 'Farouk']],
+  he: [['David', 'Noa', 'Yosef', 'Tamar', 'Eitan', 'Maya', 'Avi', 'Shira'], ['Cohen', 'Levi', 'Mizrahi', 'Peretz', 'Biton', 'Friedman', 'Katz', 'Shapiro']],
+  fa: [['Reza', 'Maryam', 'Ali', 'Shirin', 'Hossein', 'Nasrin', 'Dariush', 'Parisa'], ['Tehrani', 'Rahimi', 'Karimi', 'Mohammadi', 'Hosseini', 'Jafari', 'Ahmadi', 'Moradi']],
+  in: [['Arjun', 'Priya', 'Rahul', 'Ananya', 'Vikram', 'Kavya', 'Sanjay', 'Meera'], ['Sharma', 'Patel', 'Singh', 'Reddy', 'Gupta', 'Iyer', 'Nair', 'Khan']],
+  cn: [['Wei', 'Li', 'Jun', 'Mei', 'Hao', 'Xiu', 'Jian', 'Lan'], ['Wang', 'Zhang', 'Liu', 'Chen', 'Yang', 'Zhao', 'Huang', 'Zhou']],
+  jp: [['Hiroshi', 'Yuki', 'Takeshi', 'Aiko', 'Kenji', 'Naomi', 'Daichi', 'Sakura'], ['Sato', 'Suzuki', 'Takahashi', 'Tanaka', 'Watanabe', 'Ito', 'Yamamoto', 'Nakamura']],
+  ko: [['Min-jun', 'Seo-yeon', 'Ji-hoon', 'Ha-eun', 'Dong-hyun', 'Su-bin', 'Jae-won', 'Yu-na'], ['Kim', 'Lee', 'Park', 'Choi', 'Jung', 'Kang', 'Cho', 'Yoon']],
+  sea: [['Budi', 'Siti', 'Arif', 'Dewi', 'Somchai', 'Mali', 'Rizal', 'Ayu'], ['Santoso', 'Wijaya', 'Pratama', 'Hidayat', 'Saetang', 'Rahman', 'Tan', 'Lim']],
+  af: [['Kwame', 'Amara', 'Jabari', 'Zawadi', 'Tendai', 'Nia', 'Oluwaseun', 'Imani'], ['Mensah', 'Okafor', 'Mwangi', 'Diallo', 'Banda', 'Nkosi', 'Abara', 'Kamara']],
+};
+const LANGS = {
+  it: 'IT SM VA', es: 'ES MX AR CO PE VE CL EC BO PY UY CU DO GT HN NI SV CR PA', pt: 'PT BR AO MZ GW CV', fr: 'FR BE LU MC HT', de: 'DE AT CH LI',
+  en: 'GB US CA AU NZ IE JM', nordic: 'NL SE NO DK FI IS', slav: 'RU UA BY PL CZ SK BG RS HR SI BA MK ME KZ KG UZ', gr: 'GR CY', tr: 'TR AZ TM',
+  ar: 'SA AE QA KW OM YE IQ SY JO LB EG LY TN DZ MA SD MR BH PS', he: 'IL', fa: 'IR AF TJ', in: 'IN PK BD NP LK BT', cn: 'CN TW SG', jp: 'JP', ko: 'KR KP',
+  sea: 'ID MY TH PH VN KH LA MM BN TL',
+};
+const LANG_OF = {};
+for (const k in LANGS) for (const a of LANGS[k].split(' ')) LANG_OF[a] = k;
+const DYNASTY = ['SA', 'MA', 'JO', 'BH', 'SZ', 'BN', 'OM', 'QA', 'KW', 'AE', 'KP'];
+const TEMPER = {
+  aggr: { name: 'aggressivo', war: 2.5, peace: 0.6, attack: 1.15, nuke: 2.5 },
+  prud: { name: 'prudente', war: 0.4, peace: 1.5, attack: 1.6, nuke: 0.5 },
+  paci: { name: 'pacifico', war: 0.15, peace: 2.2, attack: 1.8, nuke: 0.2 },
+  impr: { name: 'imprevedibile', war: 1.3, peace: 1, attack: 1.3, nuke: 1.8 },
+};
+// DEFCON: the world's alert level, from 5 (peace) to 1 (nuclear war imminent); warheads can only fly at 2 or 1
+const DEFCON_TXT = { 5: 'Pace: forze in condizioni normali', 4: 'Tensione: intelligence rafforzata', 3: 'Forze armate in stato d\'allerta', 2: 'Forze nucleari pronte al lancio', 1: 'Guerra nucleare imminente' };
+const DEFCON_COL = { 5: '#4da3ff', 4: '#3ddc97', 3: '#f5c451', 2: '#ff8a3d', 1: '#ff4d5e' };
 const START_SUB = { US: 8, RU: 6, CN: 6, GB: 3, FR: 3, IN: 2, JP: 3, KR: 2, KP: 3, IR: 1, TR: 2, DE: 1, IT: 2, IL: 1, PK: 1, AU: 1, ES: 1, BR: 1 };
 const START_CAR = { US: 5, CN: 2, GB: 1, FR: 1, IN: 1, RU: 1, IT: 1 };
 const START_TECH = {
@@ -749,15 +802,18 @@ function initialState() {
       tax: 1, draft: false, rb: 10, rp: 0, res: '', stab: 70, mood: 0, sanc: 0, intel: {}, stock: { oil: 40, steel: 40, food: 40 }, short: {} };
   });
   const rel = W.nations.map(() => Math.round(Math.random() * 30 - 10));
-  return { v: 6, time: 0, day: 0, player: -1, truce: {}, asked: {}, retal: [], moves: [], units: [], battles: [], nextMove: 1, ws: {}, hist: [], rel, autoPause: true, market: { ...BASE_PRICE }, scen: 'peace', y0: START_YEAR, goals: null, won: [], capLost: false, p, n };
+  const lead = W.nations.map((x, k) => x.size ? makeLeader(k, '', 0) : null);
+  return { v: 6, time: 0, day: 0, player: -1, truce: {}, asked: {}, retal: [], moves: [], units: [], battles: [], nextMove: 1, ws: {}, hist: [], rel, autoPause: true, market: { ...BASE_PRICE }, scen: 'peace', y0: START_YEAR, goals: null, won: [], capLost: false, lead, defcon: 5, tshock: 0, wind: Math.random() * Math.PI * 2, observer: false, duel: null, p, n };
 }
 function serialize() {
-  return { ...G, p: G.p.map(x => [x.owner, x.army, x.fgt, x.bmb, x.ships, x.eco, x.fort, x.rad, x.hit, x.sup, x.bar, x.apt, x.port, x.mis, x.tnk, x.sub, x.car, x.aa, x.abm, Math.round(x.xp * 100) / 100, x.rev || 0]) };
+  return { ...G, p: G.p.map(x => [x.owner, x.army, x.fgt, x.bmb, x.ships, x.eco, x.fort, x.rad, x.hit, x.sup, x.bar, x.apt, x.port, x.mis, x.tnk, x.sub, x.car, x.aa, x.abm, Math.round(x.xp * 100) / 100, x.rev || 0, x.rail || 0]) };
 }
 function restore(s) {
   if (!s || s.v !== 6) return false;
   G = { ...s, retal: s.retal || [], asked: s.asked || {}, battles: s.battles || [], p: s.p.map(a => ({ owner: a[0], army: a[1], fgt: a[2], bmb: a[3], ships: a[4], eco: a[5], fort: a[6], rad: a[7], hit: a[8], sup: a[9], bar: a[10], apt: a[11], port: a[12], mis: a[13] || 0,
-    tnk: a[14] || 0, sub: a[15] || 0, car: a[16] || 0, aa: a[17] || 0, abm: a[18] || 0, xp: a[19] || 0, rev: a[20] || 0 })), units: s.units || [], market: s.market || { ...BASE_PRICE }, won: s.won || [], scen: s.scen || 'peace', y0: s.y0 || START_YEAR };
+    tnk: a[14] || 0, sub: a[15] || 0, car: a[16] || 0, aa: a[17] || 0, abm: a[18] || 0, xp: a[19] || 0, rev: a[20] || 0, rail: a[21] || 0 })), units: s.units || [], market: s.market || { ...BASE_PRICE }, won: s.won || [], scen: s.scen || 'peace', y0: s.y0 || START_YEAR };
+  if (!G.lead) G.lead = W.nations.map((x, k) => x.size ? makeLeader(k, '', G.day) : null);
+  G.defcon = G.defcon || 5; G.tshock = G.tshock || 0; if (G.wind === undefined) G.wind = 0;
   for (const x of G.n) {
     x.tech = x.tech || []; x.intel = x.intel || {}; x.stock = x.stock || { oil: 40, steel: 40, food: 40 }; x.short = x.short || {};
     for (const [k, v] of Object.entries({ tax: 1, draft: false, rb: 10, rp: 0, res: '', stab: 70, mood: 0, sanc: 0 })) if (x[k] === undefined) x[k] = v;
@@ -765,7 +821,7 @@ function restore(s) {
   ownVer++; bordersDirty = true; staticDirty = true;
   return true;
 }
-function save() { try { if (G && phase === 'play') localStorage.setItem(SAVE_KEY, JSON.stringify(serialize())); } catch (e) {} }
+function save() { try { if (G && phase === 'play' && G.player >= 0) localStorage.setItem(SAVE_KEY, JSON.stringify(serialize())); } catch (e) {} }
 function loadSaved() { try { const s = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null'); return s && s.v === 6 ? s : null; } catch (e) { return null; } }
 function clearSaved() { try { localStorage.removeItem(SAVE_KEY); } catch (e) {} }
 
@@ -931,14 +987,22 @@ function forcesOf(n) {
 // one number for military strength: soldiers, with planes and ships counted as their weight in soldiers
 const power = f => f.army + (f.tnk || 0) * TANK_VAL + f.fgt * 600 + f.bmb * 700 + f.ships * 800 + (f.sub || 0) * 900 + (f.car || 0) * 1500 + (f.mis || 0) * 500;
 const armyOf = n => power(forcesOf(n));
-const atWar = (a, b) => G.n[a].wars.includes(b);
-const allied = (a, b) => G.n[a].allies.includes(b);
+const atWar = (a, b) => a >= 0 && b >= 0 && G.n[a].wars.includes(b);
+const allied = (a, b) => a >= 0 && b >= 0 && G.n[a].allies.includes(b);
 const tkey = (a, b) => a < b ? a + '-' + b : b + '-' + a;
 const truceLeft = (a, b) => Math.max(0, (G.truce[tkey(a, b)] || 0) - G.day);
 const radLeft = i => Math.max(0, G.p[i].rad - G.day);
 const blockaded = i => !!W.provs[i].sp && G.units.some(u => u.kind === 'fleet' && atWar(u.owner, G.p[i].owner) && ptDist([u.x, u.y], W.provs[i].sp) < 55);
+const railCut = i => (G.p[i].rail || 0) > G.day;
+function cutRail(i, days) {
+  const P = G.p[i], was = railCut(i);
+  P.rail = Math.max(P.rail || 0, G.day + days);
+  staticDirty = true;
+  if (!was && P.owner === G.player) news(`Ferrovia interrotta a ${pname(i)}: rifornimenti e produzione rallentati per ${daysWord(days)}.`, 'bad', i);
+}
 function provIncome(i) {
   if (radLeft(i) || G.p[i].rev) return 0;
+  if (railCut(i)) return Math.floor((2 + G.p[i].eco * 2) * 0.6);
   const base = 2 + G.p[i].eco * 2 + (G.n[G.p[i].owner].capital === i ? 6 : 0);
   return blockaded(i) ? Math.floor(base / 2) : base;
 }
@@ -984,7 +1048,9 @@ function neighborNations(n) {
   return [...s];
 }
 function dateStr(day) { return (Math.floor(day) % 30 + 1) + ' ' + MONTHS[Math.floor(day / 30) % 12] + ' ' + (((G && G.y0) || START_YEAR) + Math.floor(day / 360)); }
-const nearPlayer = n => G.player >= 0 && (n === G.player || allied(G.player, n) || neighborNations(G.player).includes(n));
+const a2of = n => WD.countries[W.nations[n].id].a;
+// whose news is worth telling: your neighbours and allies, or the great powers when you only watch
+const nearPlayer = n => G.observer ? !!START_MIL[a2of(n)] : G.player >= 0 && (n === G.player || allied(G.player, n) || neighborNations(G.player).includes(n));
 
 // ---------- relations with the player, -100..100 ----------
 function relAdd(n, d) { if (n >= 0 && n !== G.player) G.rel[n] = Math.max(-100, Math.min(100, (G.rel[n] || 0) + d)); }
@@ -1398,6 +1464,7 @@ function resolveAir(m) {
       if (P.tnk && bmb) P.tnk = Math.max(0, P.tnk - Math.round(bmb * 0.5 * Math.random()));
       if (bmb >= 3 && Math.random() < 0.5) P.fort = Math.max(0, P.fort - 1);
       if (Math.random() < bmb * 0.04) P.eco = Math.max(1, P.eco - 1);
+      if (bmb && Math.random() < 0.5) cutRail(to, 25);
       if (P.ships && bmb) P.ships = Math.max(0, P.ships - Math.round(bmb * 0.3 * Math.random()));
       P.hit = G.day; what = `${fmt(killed)} soldati`;
       addKia(me, o, o, killed);
@@ -1444,6 +1511,7 @@ function resolveMissile(m) {
     P.army -= k; what = `${fmt(k)} soldati`; addKia(me, o, o, k);
     if (P.fgt + P.bmb && Math.random() < 0.35) { if (P.bmb) P.bmb--; else P.fgt--; what += ', un aereo a terra'; }
     if (P.ships && Math.random() < 0.3) { P.ships--; what += ', una nave in porto'; }
+    if (Math.random() < 0.35) { cutRail(m.target, 15); what += ', ferrovia interrotta'; }
     P.hit = G.day;
   }
   G.units = G.units.filter(uAlive);
@@ -1598,7 +1666,8 @@ function updateSupply() {
     const x = G.n[n];
     if (!x.alive) continue;
     const ok = new Set([x.capital]), q = [x.capital];
-    for (let k = 0; k < q.length; k++) for (const b of W.provs[q[k]].nb) {
+    // a province with its railway cut still receives supplies, but cannot pass them on
+    for (let k = 0; k < q.length; k++) if (k === 0 || !railCut(q[k])) for (const b of W.provs[q[k]].nb) {
       if (ok.has(b)) continue;
       const o = G.p[b].owner;
       if ((o === n || allied(n, o)) && !(isRoute(q[k], b) && routeBlocked(n, q[k], b))) { ok.add(b); q.push(b); }
@@ -1623,14 +1692,17 @@ function nukeTarget(n, m) {
   return best;
 }
 // an intercontinental missile leaves the capital and needs a few days to arrive
-function launchNuke(att, target) {
+function launchNuke(att, target, force) {
   if (G.n[att].nukes <= 0 || target < 0) return false;
+  if (!force && G.defcon > 2) return false;
+  G.tshock += 30;
   G.n[att].nukes--;
   const cap = G.n[att].capital, from = G.p[cap] && G.p[cap].owner === att ? cap : provsOf(att)[0];
   const a = W.provs[from].c.slice(), b = W.provs[target].c.slice();
   const dur = 1.5 + ptDist(a, b) / 700, days = daysWord(Math.max(1, Math.round(dur)));
   G.moves.push({ id: G.nextMove++, owner: att, type: 'missile', nuke: true, pts: [a, b], tl: [0, 1], dep: G.time, arr: G.time + dur, target, tgtUnit: 0 });
   launchFx(a, true);
+  updateDefcon();
   const victim = G.p[target].owner;
   if (att === G.player) news(`Missile nucleare in volo verso ${pname(target)}: impatto tra ${days}.`, 'bad', target);
   else if (victim === G.player) { markAlert(target, 'nuke'); raiseAlert(`☢︎ ${fullName(att)} ha lanciato un missile nucleare contro ${pname(target)}! Impatto tra ${days}.`, target, true); }
@@ -1666,9 +1738,228 @@ function detonateNuke(att, target) {
   else if (victim === G.player) { markAlert(target, 'nuke'); raiseAlert(`${fullName(att)} ha colpito ${where} con un'arma nucleare!`, target, true); const c = W.provs[target].c; centerOn(c[0], c[1], Math.max(cam.s, 0.9), 0.45); }
   else news(`${fullName(att)} ha lanciato un'arma nucleare su ${where} (${fullName(victim)}).`, 'bad', target);
   // the flight is over: only the explosion is left to show
-  anims.push({ kind: 'nuke', a: W.provs[target].c, b: W.provs[target].c, t0: performance.now() - 1700, dur: 1700, boom: 3400 });
+  anims.push({ kind: 'nuke', a: W.provs[target].c, b: W.provs[target].c, t0: performance.now() - 1700, dur: 1700, boom: 6500 });
   scorch(W.provs[target].c, 26, 360);
+  cutRail(target, 180); for (const j of W.provs[target].landNb) cutRail(j, 40);
+  sfxBoom(true);
+  G.tshock += 20; updateDefcon();
+  fallout(att, target);
   return true;
+}
+// radioactive fallout drifts with the wind and contaminates the provinces downwind
+const plumes = [];
+function fallout(att, target) {
+  const c0 = W.provs[target].c, wx = Math.cos(G.wind), wy = Math.sin(G.wind), hit = [];
+  for (let j = 0; j < W.provs.length; j++) {
+    if (j === target) continue;
+    const c = W.provs[j].c;
+    let dx = c[0] - c0[0]; if (Math.abs(dx) > MW / 2) dx -= Math.sign(dx) * MW;
+    const dy = c[1] - c0[1], along = dx * wx + dy * wy, across = Math.abs(-dx * wy + dy * wx);
+    if (along > 5 && along < 220 && across < 18 + along * 0.22) {
+      const k = 1 - along / 220, P = G.p[j];
+      P.rad = Math.max(P.rad, G.day + Math.round(RAD_DAYS * 0.6 * k));
+      P.army = Math.round(P.army * (1 - 0.25 * k) / 10) * 10;
+      hit.push(j);
+    }
+  }
+  plumes.push({ x: c0[0], y: c0[1], a: G.wind, t: G.time });
+  if (plumes.length > 12) plumes.shift();
+  staticDirty = true;
+  const mine = hit.filter(j => G.p[j].owner === G.player);
+  if (mine.length) raiseAlert(`La nube radioattiva spinta dal vento contamina ${mine.length} ${mine.length === 1 ? 'tua provincia' : 'tue province'}: ${mine.slice(0, 3).map(pname).join(', ')}.`, mine[0], false);
+  else if (hit.length && (att === G.player || G.observer)) news(`Il vento porta la ricaduta radioattiva su ${hit.length} province: ${hit.slice(0, 3).map(pname).join(', ')}.`, '', hit[0]);
+}
+const windWord = () => { const d = ['est', 'sud-est', 'sud', 'sud-ovest', 'ovest', 'nord-ovest', 'nord', 'nord-est']; return d[Math.round(((G.wind % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2) / (Math.PI / 4)) % 8]; };
+// ---------- DEFCON ----------
+function updateDefcon(quiet) {
+  let t = 0;
+  const big = n => !!START_MIL[a2of(n)], nuc = n => G.n[n].nukes > 0;
+  for (let a = 0; a < G.n.length; a++) {
+    if (!G.n[a].alive) continue;
+    for (const b of G.n[a].wars) {
+      if (b < a) continue;
+      t += 1 + (big(a) && big(b) ? 6 : big(a) || big(b) ? 2 : 0) + (nuc(a) && nuc(b) ? 45 : nuc(a) || nuc(b) ? 8 : 0);
+      if (a === G.player || b === G.player) t += 6;
+    }
+  }
+  const T = Math.min(100, t + G.tshock);
+  const lvl = T < 12 ? 5 : T < 30 ? 4 : T < 50 ? 3 : T < 75 ? 2 : 1;
+  const old = G.defcon;
+  G.defcon = lvl;
+  G.tension = Math.round(T);
+  if (lvl !== old && !quiet) defconChanged(old, lvl);
+}
+function defconChanged(old, lvl) {
+  const el = $('banner');
+  el.className = 'glass defcon';
+  el.style.borderTopColor = DEFCON_COL[lvl];
+  el.innerHTML = `<span class="bk" style="color:${DEFCON_COL[lvl]}">Allerta mondiale ${lvl < old ? 'in aumento' : 'in calo'}</span><b>DEFCON ${lvl}</b><small class="sub">${DEFCON_TXT[lvl]}</small>`;
+  el.hidden = false; el.onclick = null;
+  clearTimeout(bannerTimer);
+  bannerTimer = setTimeout(() => { el.hidden = true; el.style.borderTopColor = ''; }, 3600);
+  news(`DEFCON ${lvl}: ${DEFCON_TXT[lvl]}.`, lvl < old ? 'bad' : 'good');
+  if (lvl <= 2 && lvl < old) { sfxSiren(); if (G.autoPause && G.player >= 0 && lvl === 1 && speedIdx) setSpeed(0); }
+  updateHUD();
+}
+// ---------- leaders ----------
+function langOf(n) {
+  const a = a2of(n);
+  if (LANG_OF[a]) return LANG_OF[a];
+  const c = W.provs[W.nations[n].capital] ? W.provs[W.nations[n].capital].c : [0, 0];
+  return c[1] > 900 && c[0] > 1700 && c[0] < 2500 ? 'af' : c[0] < 1500 ? 'es' : 'en';
+}
+function titleOf(a) {
+  if (['SA', 'MA', 'JO', 'BH', 'SZ', 'BN', 'OM'].includes(a)) return 'Re';
+  if (['QA', 'KW', 'AE'].includes(a)) return 'Emiro';
+  if (a === 'KP') return 'Leader supremo';
+  if (['DE', 'AT'].includes(a)) return 'Cancelliere';
+  if (['IT', 'GB', 'JP', 'IN', 'CA', 'AU', 'ES', 'IL', 'NL', 'SE', 'NO', 'DK', 'BE', 'PK', 'NZ', 'GR', 'HU', 'TH'].includes(a)) return 'Primo ministro';
+  return 'Presidente';
+}
+function makeLeader(n, fam, day) {
+  const a = a2of(n), lang = langOf(n), [first, last] = NAMES[lang], king = DYNASTY.includes(a);
+  let fi = Math.floor(Math.random() * first.length); if (king) fi -= fi % 2;
+  const sur = fam || last[Math.floor(Math.random() * last.length)];
+  const name = ['cn', 'ko', 'jp'].includes(lang) ? sur + ' ' + first[fi] : first[fi] + ' ' + sur;
+  const r = Math.random(), temper = r < 0.25 ? 'aggr' : r < 0.6 ? 'prud' : r < 0.75 ? 'impr' : 'paci';
+  return { name, fam: sur, title: titleOf(a), temper, age: (fam ? 30 : 45) + Math.floor(Math.random() * 25), since: day, term: 1440 + Math.floor(Math.random() * 720) };
+}
+function temperOf(n) {
+  const L = G.lead && G.lead[n], t = TEMPER[L ? L.temper : 'prud'];
+  return L && L.temper === 'impr' ? { ...t, war: Math.random() * 3, attack: 1 + Math.random() * 0.8 } : t;
+}
+const leaderLine = n => { const L = G.lead && G.lead[n]; return L ? `${L.title} ${L.name}` : ''; };
+// once a year rulers grow older; some die, elected ones face elections
+function leadersTick() {
+  for (let n = 0; n < G.n.length; n++) {
+    const L = G.lead[n];
+    if (!L || !G.n[n].alive || (G.day + n * 7) % 360) continue;
+    L.age++;
+    const dyn = DYNASTY.includes(a2of(n)), dies = Math.random() < Math.max(0, (L.age - 62) * 0.015);
+    const vote = !dyn && G.day - L.since >= L.term;
+    if (!dies && !vote) continue;
+    const nl = makeLeader(n, dyn ? L.fam : '', G.day);
+    G.lead[n] = nl;
+    if (n === G.player) news(dies ? `${L.title} ${L.name} è morto. Il nuovo capo del governo sei tu, ${nl.title} ${nl.name}.` : `Elezioni vinte: resti alla guida con un nuovo governo, ${nl.title} ${nl.name}.`, '');
+    else if (nearPlayer(n)) news(`${fullName(n)}: ${dies ? `morto ${L.title.toLowerCase()} ${L.name}, ${dyn ? 'gli succede' : 'arriva'}` : 'elezioni, vince'} ${nl.title.toLowerCase()} ${nl.name} (${TEMPER[nl.temper].name}).`, nl.temper === 'aggr' ? 'bad' : '', G.n[n].capital);
+  }
+}
+// ---------- god mode: the observer can change the world ----------
+function godAction(k, i) {
+  const P = G.p[i], o = P.owner;
+  if (k === 'army') { addGarrison(i, 10000); news(`${pname(i)} riceve 10.000 soldati.`, '', i); }
+  else if (k === 'disaster') {
+    P.army = Math.round(P.army * 0.5 / 10) * 10; P.eco = Math.max(1, P.eco - 2); cutRail(i, 40);
+    for (let j = 0; j < 4; j++) { const q = [W.provs[i].c[0] + (Math.random() - 0.5) * 10, W.provs[i].c[1] + (Math.random() - 0.5) * 8]; anims.push({ kind: 'impact', p: q, t0: performance.now() + j * 160, dur: 1500, r: 3 }); scorch(q, 3, 30); }
+    sfxBoom(false);
+    news(`Terremoto a ${pname(i)}: metà dell'esercito perduta, economia devastata, ferrovie interrotte.`, 'bad', i);
+  } else if (k === 'war') {
+    const t = neighborNations(o).filter(m => G.n[m].alive && !atWar(o, m) && !allied(o, m)).sort((a, b) => armyOf(b) - armyOf(a))[0];
+    if (t === undefined) return toast('Nessun vicino con cui fare guerra.');
+    declareWar(o, t); news(`${fullName(o)} dichiara guerra a ${fullName(t)}.`, 'bad', i);
+  } else if (k === 'peace') {
+    const w = G.n[o].wars.slice(); for (const x of w) makePeace(o, x);
+    news(w.length ? `${fullName(o)} firma la pace con ${w.map(fullName).join(', ')}.` : `${fullName(o)} non è in guerra.`, 'good', i);
+  } else if (k === 'coup') {
+    const L = G.lead[o]; G.lead[o] = makeLeader(o, '', G.day);
+    news(`Colpo di stato in ${fullName(o)}: cade ${L ? L.name : 'il governo'}, prende il potere ${G.lead[o].title.toLowerCase()} ${G.lead[o].name} (${TEMPER[G.lead[o].temper].name}).`, 'bad', i);
+  } else if (k === 'nuke') {
+    let att = G.n.map((_, n) => n).filter(n => n !== o && G.n[n].alive && G.n[n].nukes > 0).sort((a, b) => (atWar(b, o) - atWar(a, o)) || (armyOf(b) - armyOf(a)))[0];
+    if (att === undefined) att = G.n.map((_, n) => n).filter(n => n !== o && G.n[n].alive).sort((a, b) => armyOf(b) - armyOf(a))[0];
+    G.n[att].nukes++;
+    if (!atWar(att, o)) declareWar(att, o);
+    launchNuke(att, i, true);
+  }
+  staticDirty = true; updateHUD(); renderPanel(); requestRender();
+}
+// ---------- nuclear duel: you against the rival power, at DEFCON 1 ----------
+// what is left of a side's cities: its provinces at the start of the duel, still its own and not contaminated
+const cityValue = (n, list) => (list || provsOf(n)).reduce((s, i) => s + (radLeft(i) || G.p[i].owner !== n ? 0 : W.provs[i].pop * Math.min(G.p[i].eco, 3)), 0);
+function setupDuel() {
+  const me = G.player;
+  const pref = { US: 'RU', RU: 'US', CN: 'US', IN: 'PK', PK: 'IN', KP: 'US', IL: 'IR', IR: 'IL', GB: 'RU', FR: 'RU', UA: 'RU' }[a2of(me)];
+  let foe = pref ? natA2(pref) : -1;
+  if (foe < 0 || foe === me) foe = G.n.map((_, n) => n).filter(n => n !== me && G.n[n].alive).sort((x, y) => (G.n[y].nukes - G.n[x].nukes) || (armyOf(y) - armyOf(x)))[0];
+  for (const x of G.n) { x.wars = []; x.allies = []; }
+  G.truce = {};
+  for (const n of [me, foe]) {
+    const x = G.n[n], cap = x.capital;
+    x.nukes = 15; x.prog = 0; x.gold += 400;
+    G.p[cap].abm = 1; G.p[cap].aa = 2;
+    if (!x.tech.includes('abm')) x.tech.push('abm');
+    for (const i of provsOf(n).slice().sort((p, q) => W.provs[q].pop - W.provs[p].pop).slice(0, 4)) { G.p[i].mis += 4; G.p[i].bar = 1; }
+  }
+  declareWar(me, foe);
+  G.duel = { foe, prov: { [me]: provsOf(me).slice(), [foe]: provsOf(foe).slice() }, me: 1, him: 1 };
+  G.duel.base = { [me]: cityValue(me, G.duel.prov[me]), [foe]: cityValue(foe, G.duel.prov[foe]) };
+  G.tshock = 200; updateDefcon(true);
+  ownVer++; staticDirty = true;
+}
+function duelTick() {
+  const { foe } = G.duel, me = G.player;
+  if (G.n[foe].alive && G.n[foe].nukes > 0 && G.day % 4 === 2 && Math.random() < 0.7) launchNuke(foe, nukeTarget(foe, me), true);
+  for (const i of provsOf(foe)) if (G.p[i].mis && Math.random() < 0.15) {
+    const t = provsOf(me).find(t => provDist(i, t) <= missileRange(foe));
+    if (t !== undefined) fireMissile(foe, i, t);
+  }
+  G.duel.me = Math.min(1, cityValue(me, G.duel.prov[me]) / Math.max(1, G.duel.base[me]));
+  G.duel.him = G.n[foe].alive ? Math.min(1, cityValue(foe, G.duel.prov[foe]) / Math.max(1, G.duel.base[foe])) : 0;
+  updateDuelBar();
+  if (G.duel.done) return;
+  if (G.duel.him <= 0.35 || G.duel.me <= 0.35) {
+    G.duel.done = true;
+    const win = G.duel.him <= 0.35;
+    ask(() => showModal(`<div class="eyebrow">Duello nucleare</div><h1 style="font-size:30px">${win ? 'Hai vinto il duello' : 'Hai perso il duello'}</h1>
+      <p>${win ? `Le città di ${esc(fullName(foe))} sono ridotte al ${Math.round(G.duel.him * 100)}%. Le tue resistono al ${Math.round(G.duel.me * 100)}%.` : `Le tue città sono ridotte al ${Math.round(G.duel.me * 100)}%. Quelle di ${esc(fullName(foe))} al ${Math.round(G.duel.him * 100)}%.`} Nessuno vince davvero una guerra nucleare.</p>
+      <div class="row"><button class="btn primary" id="dNew">Nuova partita</button><button class="btn" id="dGo">Guarda le macerie</button></div>`, () => {
+      $('dNew').onclick = () => { modalQueue.length = 0; hideModal(); clearSaved(); toIntro(); };
+      $('dGo').onclick = hideModal;
+    }));
+  }
+}
+function updateDuelBar() {
+  const el = $('duelBar');
+  if (!G.duel || G.player < 0) { el.hidden = true; return; }
+  const bar = (v, c) => `<span class="db"><i style="width:${Math.round(v * 100)}%;background:${c}"></i></span>`;
+  el.innerHTML = `<b>Tu ${Math.round(G.duel.me * 100)}%</b>${bar(G.duel.me, '#4da3ff')}<span class="vs">città</span>${bar(G.duel.him, '#ff4d5e')}<b>${esc(nat(G.duel.foe).place)} ${Math.round(G.duel.him * 100)}%</b>`;
+  el.hidden = false;
+}
+// ---------- sound: explosions, launches, sirens (synthesised, no files) ----------
+let AC = null, soundOn = true;
+try { soundOn = localStorage.getItem('tdc-sound') !== '0'; } catch (e) {}
+function audio() {
+  if (!soundOn) return null;
+  if (!AC) { try { AC = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return null; } }
+  if (AC.state === 'suspended') AC.resume();
+  return AC;
+}
+document.addEventListener('pointerdown', () => { if (soundOn && !AC) audio(); });
+function noiseBuf(ac, len, pow) {
+  const b = ac.createBuffer(1, Math.floor(ac.sampleRate * len), ac.sampleRate), d = b.getChannelData(0);
+  for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / d.length, pow);
+  return b;
+}
+function sfxBoom(big) {
+  const ac = audio(); if (!ac) return;
+  const src = ac.createBufferSource(), f = ac.createBiquadFilter(), g = ac.createGain();
+  src.buffer = noiseBuf(ac, big ? 4 : 1.3, big ? 1.6 : 3); f.type = 'lowpass'; f.frequency.value = big ? 160 : 420; g.gain.value = big ? 1.2 : 0.35;
+  src.connect(f).connect(g).connect(ac.destination); src.start();
+}
+function sfxLaunch(big) {
+  const ac = audio(); if (!ac) return;
+  const src = ac.createBufferSource(), f = ac.createBiquadFilter(), g = ac.createGain(), t = ac.currentTime;
+  src.buffer = noiseBuf(ac, big ? 2.4 : 1.4, 1); f.type = 'bandpass'; f.Q.value = 0.8;
+  f.frequency.setValueAtTime(300, t); f.frequency.exponentialRampToValueAtTime(1600, t + (big ? 2.2 : 1.2));
+  g.gain.setValueAtTime(big ? 0.35 : 0.18, t);
+  src.connect(f).connect(g).connect(ac.destination); src.start();
+}
+function sfxSiren() {
+  const ac = audio(); if (!ac) return;
+  const o = ac.createOscillator(), f = ac.createBiquadFilter(), g = ac.createGain(), t = ac.currentTime;
+  o.type = 'sawtooth'; f.type = 'lowpass'; f.frequency.value = 1400;
+  for (let k = 0; k < 3; k++) { o.frequency.setValueAtTime(380, t + k * 1.3); o.frequency.linearRampToValueAtTime(760, t + k * 1.3 + 0.65); o.frequency.linearRampToValueAtTime(380, t + k * 1.3 + 1.3); }
+  g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.1, t + 0.25); g.gain.setValueAtTime(0.1, t + 3.6); g.gain.exponentialRampToValueAtTime(0.0001, t + 3.9);
+  o.connect(f).connect(g).connect(ac.destination); o.start(t); o.stop(t + 4);
 }
 
 // ---------- AI ----------
@@ -1683,11 +1974,17 @@ function aiTick(n) {
   if (me.prog === 0 && me.nukes < 5 && me.gold > 250 && Math.random() < 0.01) { me.gold -= NUKE_COST; me.nukes++; }
   for (const r of G.retal.filter(r => r[0] === n)) {
     G.retal.splice(G.retal.indexOf(r), 1);
-    if (G.n[r[1]].alive && me.nukes > 0) { if (!atWar(n, r[1])) declareWar(n, r[1]); launchNuke(n, nukeTarget(n, r[1])); }
+    if (G.n[r[1]].alive && me.nukes > 0) { if (!atWar(n, r[1])) declareWar(n, r[1]); launchNuke(n, nukeTarget(n, r[1]), true); }
   }
-  if (me.nukes > 0 && me.wars.length && Math.random() < 0.01) {
+  const T = temperOf(n);
+  if (me.nukes > 0 && me.wars.length && Math.random() < 0.01 * T.nuke) {
     const m = me.wars.slice().sort((a, b) => armyOf(b) - armyOf(a))[0];
-    if (myArmy < armyOf(m) * 0.5) launchNuke(n, nukeTarget(n, m));
+    if (myArmy < armyOf(m) * (T.nuke > 2 ? 0.8 : 0.5)) {
+      // a ruler who is losing first puts his forces on alert, which raises the whole world's DEFCON
+      if (G.defcon > 2) {
+        if (Math.random() < 0.35 * T.nuke) { G.tshock += 35; updateDefcon(); if (nearPlayer(n) || atWar(n, G.player)) news(`${fullName(n)} mette le sue forze nucleari in massima allerta.`, 'bad', me.capital); }
+      } else launchNuke(n, nukeTarget(n, m));
+    }
   }
   if (!me.alive) return;
 
@@ -1700,18 +1997,18 @@ function aiTick(n) {
   if (G.player >= 0 && (atWar(n, G.player) || relOf(n) < -50) && Math.random() < 0.01) aiSpy(n);
   // diplomacy
   const nb = neighborNations(n);
-  if (me.wars.length === 0 && Math.random() < 0.005) {
+  if (me.wars.length === 0 && Math.random() < 0.005 * T.war) {
     const cands = nb.filter(m => {
       if (!G.n[m].alive || truceLeft(n, m) || allied(n, m)) return false;
       if (m === G.player) { const r = relOf(n); if (r > 40) return false; return armyOf(m) < myArmy * (0.7 + Math.max(0, -r) / 200); }
-      return armyOf(m) < myArmy * 0.7;
+      return armyOf(m) < myArmy * (0.55 + 0.15 * Math.min(2, T.war));
     });
     if (cands.length) { cands.sort((a, b) => armyOf(a) - armyOf(b)); declareWar(n, cands[0]); }
   }
   for (const m of me.wars.slice()) {
     const long = G.day - (me.since[m] || 0) > 540;
     const losing = myArmy < armyOf(m) * 0.55;
-    if ((losing && Math.random() < 0.04) || (long && Math.random() < 0.02)) {
+    if ((losing && Math.random() < 0.04 * T.peace) || (long && Math.random() < 0.02 * T.peace)) {
       if (m !== G.player) makePeace(n, m);
       else if ((G.asked['p' + n] || 0) <= G.day) { G.asked['p' + n] = G.day + 60; ask(() => showOffer(n)); }
     }
@@ -1748,7 +2045,7 @@ function aiTick(n) {
     const targets = enemyNb(i).filter(t => !marching.has(t)).sort((a, b) => defense(a) - defense(b));
     if (!targets.length) continue;
     const t = targets[0], send = G.p[i].army * 0.75;
-    if (send > defense(t) * 1.4 + 300 && sendArmy(n, { prov: i }, W.provs[t].c, send, { allowLanding: false })) marching.add(t);
+    if (send > defense(t) * T.attack + 300 && sendArmy(n, { prov: i }, W.provs[t].c, send, { allowLanding: false })) marching.add(t);
   }
 
   // air and naval operations while at war
@@ -1846,6 +2143,7 @@ function aiSpy(n) {
   const i = mine[Math.floor(Math.random() * mine.length)], P = G.p[i];
   if (Math.random() < (hasTech(G.player, 'spy') ? 0.5 : 0.3)) { relAdd(n, -10); news(`Catturate spie di ${fullName(n)} a ${pname(i)}.`, 'good', i); return; }
   if (P.eco > 1 && Math.random() < 0.5) { P.eco--; raiseAlert(`Sabotaggio a ${pname(i)}: l'economia scende a ${P.eco}/5. Sospetti su ${fullName(n)}.`, i, false); }
+  else if (Math.random() < 0.4) { cutRail(i, 30); raiseAlert(`Sabotaggio della ferrovia a ${pname(i)}. Sospetti su ${fullName(n)}.`, i, false); }
   else { const k = Math.round(P.army * 0.15 / 10) * 10; P.army -= k; raiseAlert(`Attentato a ${pname(i)}: persi ${fmt(k)} soldati. Sospetti su ${fullName(n)}.`, i, false); }
 }
 
@@ -1895,9 +2193,11 @@ function resourceFlow(n) {
     const a2 = WD.countries[W.provs[i].country].a, P = G.p[i];
     if (radLeft(i) || P.rev) continue;
     pop += W.provs[i].pop;
+    // goods only reach the market along working railways
+    const link = !P.sup ? 0 : railCut(i) ? 0.5 : 1;
     prod.food += Math.max(0.3, Math.min(6, W.provs[i].pop / 1.0e6)) * (hasTech(n, 'agri') ? 1.3 : 1);
-    prod.oil += OIL[a2] || 0;
-    prod.steel += (STEEL[a2] || 0) + (P.eco >= 4 ? 0.4 : 0) + (hasTech(n, 'ind') ? 0.3 : 0);
+    prod.oil += (OIL[a2] || 0) * link;
+    prod.steel += ((STEEL[a2] || 0) + (P.eco >= 4 ? 0.4 : 0) + (hasTech(n, 'ind') ? 0.3 : 0)) * link;
   }
   const f = forcesOf(n);
   use.food = pop / 2e6 + f.army / 1000 * 0.3;
@@ -1982,7 +2282,7 @@ function showSpy(n, i) {
     for (const b of document.querySelectorAll('[data-spy]')) b.onclick = () => { hideModal(); spyAction(b.dataset.spy, n, i); };
   });
 }
-const hasIntel = n => (G.n[G.player].intel[n] || 0) > G.day;
+const hasIntel = n => G.player >= 0 && (G.n[G.player].intel[n] || 0) > G.day;
 
 // ---------- alerts ----------
 const warned = {};
@@ -2025,9 +2325,14 @@ function dailyUpdate() {
     }
     if (n === G.player) homeFront(n);
     if (x.prog > 0 && G.day >= x.prog) { x.prog = 0; if (n === G.player) news('Programma nucleare completato: puoi costruire testate.', 'good'); }
-    if (n !== G.player && (n + G.day) % AI_EVERY === 0) aiTick(n);
+    if (n !== G.player && (!G.duel || n === G.duel.foe) && (n + G.day) % AI_EVERY === 0) aiTick(n);
   }
   for (const k in G.truce) if (G.truce[k] <= G.day) delete G.truce[k];
+  G.tshock *= G.duel ? 1 : 0.985;
+  G.wind += (Math.random() - 0.5) * 0.25;
+  updateDefcon();
+  leadersTick();
+  if (G.duel && G.player >= 0) duelTick();
   // fleets go home when their war is over
   for (const u of fleetsOf().slice()) {
     if (u.owner === G.player || !G.units.includes(u)) continue;
@@ -2068,7 +2373,7 @@ function gameStep(ts) {
   return true;
 }
 function checkEnd() {
-  if (phase !== 'play') return;
+  if (phase !== 'play' || G.player < 0) return;
   if (!G.n[G.player].alive) { phase = 'over'; clearSaved(); showEnd(false); return; }
   if (G.n.filter(n => n.alive).length === 1) { phase = 'over'; clearSaved(); showEnd(true); }
 }
@@ -2235,6 +2540,15 @@ function stopMove(m) {
 }
 function enterNukeMode() {
   const me = G.n[G.player];
+  if (me.nukes > 0 && me.wars.length && G.defcon > 2) {
+    showModal(`<div class="eyebrow">Allerta</div><h1 style="font-size:26px">Il mondo è a DEFCON ${G.defcon}</h1>
+      <p>Le testate si possono lanciare solo a DEFCON 2 o 1. Puoi mettere le tue forze nucleari in massima allerta: il mondo lo vedrà, i rapporti con tutti peggiorano e la tua popolazione ha paura (stabilità −5).</p>
+      <div class="row"><button class="btn primary" id="dcUp">Massima allerta</button><button class="btn" id="dcNo">Annulla</button></div>`, () => {
+      $('dcNo').onclick = hideModal;
+      $('dcUp').onclick = () => { hideModal(); G.tshock = Math.max(G.tshock, 60); relAll(-10); me.stab = Math.max(0, me.stab - 5); updateDefcon(); enterNukeMode(); };
+    });
+    return;
+  }
   if (me.nukes > 0 && me.wars.length) {
     multi = false; $('multiBtn').classList.remove('on'); selUnit = 0; selMove = 0; selected = -1; panelOpen = false;
     moveMode = 'nuke'; nukeAim = -1; wayMode = ''; wayPts = [];
@@ -2337,6 +2651,11 @@ const earthImg = new Image();
 let earthReady = false;
 earthImg.onload = () => { earthReady = true; bordersDirty = true; staticDirty = true; requestRender(); };
 earthImg.src = 'earth.jpg';
+// NASA city lights at night, for the night map
+const nightImg = new Image();
+let nightReady = false;
+nightImg.onload = () => { nightReady = true; if (mapMode === 'night') { bordersDirty = true; staticDirty = true; requestRender(); } };
+nightImg.src = 'night.jpg';
 const REL = { own: '#4da3ff', war: '#ff4d5e', ally: '#3ddc97', truce: '#f5c451', none: 'rgba(255, 255, 255, 0.55)' };
 function relation(n) {
   const me = phase === 'pick' ? pickNation : G.player;
@@ -2492,7 +2811,7 @@ function rebuildCaches() {
 function buildLabels() {
   labelCache = [];
   ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0);
-  ctx.font = mapMode === 'sat' ? 'italic 700 100px ' + FONT_SERIF : '700 100px ' + FONT_DISPLAY;
+  ctx.font = mapMode !== 'pol' ? 'italic 700 100px ' + FONT_SERIF : '700 100px ' + FONT_DISPLAY;
   const seen = new Uint8Array(W.provs.length);
   for (let n = 0; n < W.nations.length; n++) {
     const list = provsOf(n);
@@ -2522,7 +2841,7 @@ function buildLabels() {
     for (const i of best) { const pr = (W.provs[i].c[0] - mx) * ux + (W.provs[i].c[1] - my) * uy; lo = Math.min(lo, pr); hi = Math.max(hi, pr); }
     const avg = Math.sqrt(bestArea / best.length);
     const ext = hi - lo + avg * 0.7;
-    const text = mapMode === 'sat' ? nat(n).place.split('').join(' ') : nat(n).place.toUpperCase().split('').join(' ');
+    const text = mapMode !== 'pol' ? nat(n).place.split('').join(' ') : nat(n).place.toUpperCase().split('').join(' ');
     const w100 = ctx.measureText(text).width;
     let size = Math.min(ext * 0.85 / w100 * 100, avg * 0.6 + Math.sqrt(best.length) * 8);
     labelCache.push({ n, text, x: mx + ux * (lo + hi) / 2, y: my + uy * (lo + hi) / 2, ang, size });
@@ -2546,9 +2865,9 @@ function airFx(p) {
   for (let k = 0; k < 4; k++) { const q = [p[0] + (Math.random() - 0.5) * 8, p[1] + (Math.random() - 0.5) * 6]; anims.push({ kind: 'impact', p: q, t0: performance.now() + k * 140, dur: 1100, r: 1.6 }); scorch(q, 1.6, 6); }
 }
 function seaFx(p, win) { anims.push({ kind: 'burst', p, t0: performance.now(), dur: 900, color: win ? '#7fb8ff' : '#ff4d5e' }); }
-function missileFx(p) { anims.push({ kind: 'impact', p: p.slice(), t0: performance.now(), dur: 1500, r: 3.2 }); scorch(p, 3, 10); }
+function missileFx(p) { anims.push({ kind: 'impact', p: p.slice(), t0: performance.now(), dur: 1500, r: 3.2 }); scorch(p, 3, 10); const [x, y] = toScreen(p); if (x > 0 && y > 0 && x < vw && y < vh) sfxBoom(false); }
 // launches, impacts and interceptions: smoke, fire and scorched ground that stays a few days
-function launchFx(p, big) { anims.push({ kind: 'smoke', p: p.slice(), t0: performance.now(), dur: big ? 2600 : 1600, r: big ? 5 : 2.5 }); }
+function launchFx(p, big) { sfxLaunch(big); anims.push({ kind: 'smoke', p: p.slice(), t0: performance.now(), dur: big ? 2600 : 1600, r: big ? 5 : 2.5 }); }
 function interceptFx(p, big) {
   const q = [p[0], p[1] - (big ? 40 : 14)];
   anims.push({ kind: 'impact', p: q, t0: performance.now(), dur: 900, r: big ? 6 : 3, air: true });
@@ -2637,45 +2956,59 @@ function drawEffects(now) {
       }
       ctx.restore();
     } else if (A.kind === 'nuke') {
-      const pa = toScreen(A.a), pb = toScreen(A.b);
-      const len = Math.hypot(pb[0] - pa[0], pb[1] - pa[1]);
-      const ctl = [(pa[0] + pb[0]) / 2, Math.min(pa[1], pb[1]) - Math.max(60, len * 0.45)];
-      if (t <= 1) {
-        const k = ease(t), tail = Math.max(0, k - 0.35);
-        ctx.save(); ctx.lineCap = 'round';
-        for (let j = 0; j < 14; j++) {
-          const q0 = bez(pa, pb, ctl, tail + (k - tail) * j / 14), q1 = bez(pa, pb, ctl, tail + (k - tail) * (j + 1) / 14);
-          ctx.strokeStyle = `rgba(255, ${180 + j * 5}, ${90 + j * 10}, ${(j / 14) * 0.9})`; ctx.lineWidth = 1 + j * 0.25;
-          ctx.beginPath(); ctx.moveTo(q0[0], q0[1]); ctx.lineTo(q1[0], q1[1]); ctx.stroke();
-        }
-        const pos = bez(pa, pb, ctl, k);
-        ctx.shadowColor = '#fff3c4'; ctx.shadowBlur = 14; ctx.fillStyle = '#ffffff';
-        ctx.beginPath(); ctx.arc(pos[0], pos[1], 3.5, 0, 7); ctx.fill();
-        ctx.restore();
-        ctx.save(); ctx.strokeStyle = 'rgba(212, 242, 90, 0.9)'; ctx.lineWidth = 1.5; ctx.setLineDash([3, 3]);
-        ctx.beginPath(); ctx.arc(pb[0], pb[1], 14 + 4 * Math.sin(now / 120), 0, 7); ctx.stroke(); ctx.restore();
-      } else {
-        const b = (now - A.t0 - A.dur) / A.boom, R = Math.max(40, 60 * cam.s);
-        if (b < 0.14) flash = Math.max(flash, 1 - b / 0.14);
-        ctx.save();
-        ctx.globalAlpha = Math.max(0, 1 - b * 1.4);
-        ctx.strokeStyle = 'rgba(255, 240, 210, 0.9)'; ctx.lineWidth = 3;
-        ctx.beginPath(); ctx.arc(pb[0], pb[1], R * (1 + b * 6), 0, 7); ctx.stroke();
-        ctx.globalAlpha = Math.max(0, 1 - b);
-        const rise = R * 1.3 * ease(Math.min(1, b * 1.6));
-        const stem = ctx.createLinearGradient(pb[0], pb[1], pb[0], pb[1] - rise);
-        stem.addColorStop(0, 'rgba(255, 140, 50, 0.9)'); stem.addColorStop(1, 'rgba(120, 70, 50, 0.6)');
-        ctx.fillStyle = stem; ctx.fillRect(pb[0] - R * 0.18, pb[1] - rise, R * 0.36, rise);
-        const cr = R * (0.6 + 0.6 * ease(Math.min(1, b * 2)));
-        const g = ctx.createRadialGradient(pb[0], pb[1] - rise, 0, pb[0], pb[1] - rise, cr);
-        g.addColorStop(0, 'rgba(255, 255, 230, 1)'); g.addColorStop(0.35, 'rgba(255, 200, 80, 0.95)');
-        g.addColorStop(0.7, 'rgba(230, 90, 40, 0.8)'); g.addColorStop(1, 'rgba(90, 40, 30, 0)');
-        ctx.fillStyle = g; ctx.beginPath(); ctx.arc(pb[0], pb[1] - rise, cr, 0, 7); ctx.fill();
-        const gg = ctx.createRadialGradient(pb[0], pb[1], 0, pb[0], pb[1], R * 1.6);
-        gg.addColorStop(0, 'rgba(255, 170, 70, 0.75)'); gg.addColorStop(1, 'rgba(255, 90, 40, 0)');
-        ctx.fillStyle = gg; ctx.beginPath(); ctx.arc(pb[0], pb[1], R * 1.6, 0, 7); ctx.fill();
-        ctx.restore();
+      if (t <= 1) continue;
+      const [x, y] = toScreen(A.b), b = (now - A.t0 - A.dur) / A.boom, R = Math.max(26, Math.min(150, 14 * cam.s));
+      if (x < -R * 4 || x > vw + R * 4 || y < -R * 6 || y > vh + R * 3) continue;
+      if (b < 0.05) flash = Math.max(flash, 1 - b / 0.05);
+      const fade = b > 0.75 ? 1 - (b - 0.75) / 0.25 : 1, hot = Math.max(0, 1 - b * 2.2);
+      ctx.save();
+      // the shock wave races across the ground
+      if (b < 0.45) {
+        const sr = R * (0.6 + b * 9);
+        ctx.globalAlpha = (1 - b / 0.45) * 0.6; ctx.strokeStyle = 'rgba(235, 220, 200, 0.9)'; ctx.lineWidth = Math.max(1.5, R * 0.05);
+        ctx.beginPath(); ctx.ellipse(x, y, sr, sr * 0.45, 0, 0, 7); ctx.stroke();
       }
+      // dust thrown up at the base
+      ctx.globalAlpha = 0.75 * fade;
+      const dust = R * (0.6 + 1.1 * ease(Math.min(1, b * 1.6)));
+      const dg0 = ctx.createRadialGradient(x, y, 0, x, y, dust);
+      dg0.addColorStop(0, 'rgba(150, 120, 95, 0.9)'); dg0.addColorStop(1, 'rgba(120, 100, 85, 0)');
+      ctx.fillStyle = dg0; ctx.beginPath(); ctx.ellipse(x, y, dust, dust * 0.38, 0, 0, 7); ctx.fill();
+      // the stem rises, glowing at first, then turning to smoke
+      const H = R * 3.1 * ease(Math.min(1, b * 1.7));
+      for (let j = 0; j < 14; j++) {
+        const f = j / 13, w = R * (0.17 + 0.03 * Math.sin(j * 1.7 + now / 600) + (1 - f) * 0.12);
+        ctx.fillStyle = `rgba(${mixRGB([255, 150, 60], [125, 110, 98], 1 - hot * (1 - f * 0.5))}, ${0.85 * fade})`;
+        ctx.beginPath(); ctx.ellipse(x + Math.sin(j * 2.3) * R * 0.03, y - H * f, w, w * 0.8, 0, 0, 7); ctx.fill();
+      }
+      // the condensation ring around the stem
+      if (b > 0.12 && b < 0.4) {
+        ctx.globalAlpha = Math.sin((b - 0.12) / 0.28 * Math.PI) * 0.6 * fade; ctx.strokeStyle = 'rgba(245, 245, 245, 0.9)'; ctx.lineWidth = Math.max(1.5, R * 0.08);
+        ctx.beginPath(); ctx.ellipse(x, y - H * 0.55, R * 0.75, R * 0.2, 0, 0, 7); ctx.stroke();
+      }
+      ctx.globalAlpha = fade;
+      // the cap: a rolling torus of fire turning to grey smoke
+      const cr = R * (0.55 + 0.95 * ease(Math.min(1, b * 1.4))), cy = y - H;
+      const puffs = [];
+      for (let j = 0; j < 12; j++) { const a = j / 12 * Math.PI * 2 + now / 2500; puffs.push([Math.cos(a) * cr * 0.78, Math.sin(a) * cr * 0.3]); }
+      puffs.sort((p, q) => p[1] - q[1]);
+      const top = mixRGB([255, 236, 190], [190, 180, 168], 1 - hot), mid = mixRGB([255, 140, 50], [120, 108, 98], 1 - hot), bot = mixRGB([170, 60, 30], [70, 64, 60], 1 - hot);
+      for (const [px, py] of puffs) {
+        const pr = cr * 0.42, gx = x + px, gy = cy + py - cr * 0.1;
+        const gg = ctx.createRadialGradient(gx - pr * 0.3, gy - pr * 0.4, pr * 0.1, gx, gy, pr);
+        gg.addColorStop(0, `rgb(${top})`); gg.addColorStop(0.55, `rgb(${mid})`); gg.addColorStop(1, `rgba(${bot}, 0.9)`);
+        ctx.fillStyle = gg; ctx.beginPath(); ctx.arc(gx, gy, pr, 0, 7); ctx.fill();
+      }
+      const dg = ctx.createRadialGradient(x - cr * 0.2, cy - cr * 0.55, cr * 0.1, x, cy - cr * 0.25, cr * 0.75);
+      dg.addColorStop(0, `rgb(${mixRGB([255, 250, 220], [205, 196, 186], 1 - hot)})`); dg.addColorStop(1, `rgba(${mixRGB([240, 120, 40], [105, 96, 90], 1 - hot)}, 0.95)`);
+      ctx.fillStyle = dg; ctx.beginPath(); ctx.ellipse(x, cy - cr * 0.25, cr * 0.75, cr * 0.5, 0, 0, 7); ctx.fill();
+      // the first instants: a blinding fireball
+      if (b < 0.3) {
+        const fr = R * (0.5 + b * 2), fy = y - H * 0.6, fg = ctx.createRadialGradient(x, fy, 0, x, fy, fr);
+        fg.addColorStop(0, `rgba(255, 255, 235, ${1 - b / 0.3})`); fg.addColorStop(0.5, `rgba(255, 190, 80, ${0.8 * (1 - b / 0.3)})`); fg.addColorStop(1, 'rgba(255, 120, 40, 0)');
+        ctx.fillStyle = fg; ctx.beginPath(); ctx.arc(x, fy, fr, 0, 7); ctx.fill();
+      }
+      ctx.restore();
     }
   }
   if (flash > 0) { ctx.fillStyle = `rgba(255, 250, 235, ${0.7 * flash})`; ctx.fillRect(-20, -20, vw + 40, vh + 40); }
@@ -2701,9 +3034,10 @@ const sctx = scv.getContext('2d');
 let staticCam = null, staticDirty = true, staticKey = '', camKey = '', camChangedAt = 0;
 let padX = 0, padY = 0, needsDraw = true, lastStaticAt = 0, lastUiKey = '';
 function requestRender() { needsDraw = true; }
+// borders are drawn crisp, with only a faint halo, the way an atlas does
 function glowStroke(path, color, width, blur) {
   ctx.save();
-  ctx.shadowColor = color; ctx.shadowBlur = blur;
+  ctx.shadowColor = color; ctx.shadowBlur = Math.min(blur, 2);
   ctx.strokeStyle = color; ctx.lineWidth = width;
   ctx.stroke(path);
   ctx.restore();
@@ -2755,14 +3089,14 @@ function drawMap() {
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.fillStyle = '#070b14'; ctx.fillRect(0, 0, vw + 2 * padX, vh + 2 * padY);
   ctx.translate(cam.x + padX, cam.y + padY); ctx.scale(s, s);
-  const sat = mapMode === 'sat' && earthReady;
+  const night = mapMode === 'night' && nightReady, sat = (mapMode === 'sat' || mapMode === 'night') && earthReady;
   const focus = phase === 'pick' ? pickNation : -1;
   if (sat) {
     ctx.imageSmoothingQuality = 'high';
-    ctx.drawImage(earthImg, 0, 0, MW, MH);
+    ctx.drawImage(night ? nightImg : earthImg, 0, 0, MW, MH);
     const ppu = s * dpr;
-    if (ppu > 0.6) drawTiles(1, false);
-    if (ppu > 1.6) {
+    if (!night && ppu > 0.6) drawTiles(1, false);
+    if (!night && ppu > 1.6) {
       ctx.save();
       ctx.clip(landPath(), 'evenodd');
       if (ppu > 2.2) drawTiles(3, false);
@@ -2773,9 +3107,9 @@ function drawMap() {
       const NP = nationPaths[n];
       if (!NP || !visible(NP.bb)) continue;
       const r = relation(n);
-      if (r === 'own') ctx.fillStyle = 'rgba(77, 163, 255, 0.18)';
-      else if (r === 'war') ctx.fillStyle = 'rgba(255, 77, 94, 0.15)';
-      else if (r === 'ally') ctx.fillStyle = 'rgba(61, 220, 151, 0.13)';
+      if (r === 'own') ctx.fillStyle = 'rgba(77, 163, 255, 0.09)';
+      else if (r === 'war') ctx.fillStyle = 'rgba(255, 77, 94, 0.08)';
+      else if (r === 'ally') ctx.fillStyle = 'rgba(61, 220, 151, 0.06)';
       else continue;
       ctx.fill(NP.path, 'evenodd');
     }
@@ -2792,7 +3126,8 @@ function drawMap() {
   ctx.fillStyle = 'rgba(190, 255, 60, 0.22)';
   for (let i = 0; i < G.p.length; i++) if (G.p[i].rad > G.day && visible(W.provs[i].bb)) ctx.fill(W.provs[i].path, 'evenodd');
   if (phase === 'play' && selected >= 0) { ctx.fillStyle = 'rgba(255, 255, 255, 0.25)'; ctx.fill(W.provs[selected].path, 'evenodd'); }
-  if (phase === 'play') drawInstallations(s);
+  if (phase === 'play') { drawRails(s); drawCities(s, night); if (!night) drawInstallations(s); }
+  else drawCities(s, night);
 
   ctx.lineJoin = 'round'; ctx.lineCap = 'round';
   for (const T of W.tiles) {
@@ -2818,8 +3153,8 @@ function drawMap() {
     glowStroke(outlineOf(me), 'rgba(200, 228, 255, 0.9)', 0.7 * px, 0);
   } else if (focus >= 0 && nationPaths[focus]) glowStroke(outlineOf(focus), '#ffffff', 1.6 * px, 10);
 
-  // sea routes (some wrap around the date line)
-  if (s > 0.45) {
+  // sea crossings are only shown while choosing where to send troops or fleets
+  if (s > 0.45 && (moveMode === 'land' || moveMode === 'sea')) {
     ctx.setLineDash([1 * px, 5 * px]); ctx.strokeStyle = sat ? 'rgba(127, 184, 255, 0.75)' : 'rgba(150, 185, 255, 0.55)'; ctx.lineWidth = 1.6 * px;
     ctx.beginPath();
     for (const [a, b] of W.routes) {
@@ -2854,7 +3189,7 @@ function drawMap() {
   // country names
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   ctx.shadowColor = sat ? 'rgba(0, 0, 0, 0.7)' : 'rgba(0, 0, 0, 0.45)'; ctx.shadowBlur = 6;
-  ctx.fillStyle = sat ? 'rgba(236, 236, 230, 0.8)' : 'rgba(255, 255, 255, 0.92)';
+  ctx.fillStyle = night ? 'rgba(214, 200, 168, 0.5)' : sat ? 'rgba(236, 236, 230, 0.62)' : 'rgba(255, 255, 255, 0.92)';
   const labelFont = sat ? 'italic 700 ' : '700 ', labelFamily = sat ? FONT_SERIF : FONT_DISPLAY;
   const lk = sat ? 0.6 : 1;
   for (const L of labelCache) {
@@ -2887,7 +3222,9 @@ function drawOverlays(now) {
   const cands = [];
   for (let i = 0; i < W.provs.length; i++) {
     const P = G.p[i], [mx, my] = W.provs[i].c;
-    const x = mx * s + cam.x, y = my * s + cam.y;
+    // when zoomed in, the label floats just above the city so the built-up area stays visible
+    const lift = s >= 1.2 ? Math.min(36, cityR(i) * (0.75 + P.eco * 0.07) * s * 0.95) : 0;
+    const x = mx * s + cam.x, y = my * s + cam.y - lift;
     if (x < -80 || y < -80 || x > vw + 80 || y > vh + 80) continue;
     const mine = phase === 'play' && P.owner === G.player;
     const isCap = G.n[P.owner].capital === i;
@@ -2897,7 +3234,7 @@ function drawOverlays(now) {
   }
   // the bases themselves, drawn as small installations
   // your own bases always; enemy bases only when zoomed in on them
-  if (phase === 'play') drawScorches();
+  if (phase === 'play') { drawScorches(); drawPlumes(); drawMerchants(); drawTrains(); }
   cands.sort((a, b) => b.pri - a.pri);
   const placed = [];
   const free = (x0, y0, w, h) => !placed.some(r => x0 < r[0] + r[2] + 2 && x0 + w + 2 > r[0] && y0 < r[1] + r[3] + 2 && y0 + h + 2 > r[1]);
@@ -3016,14 +3353,14 @@ const instSpots = [];
 function spotsOf(i) {
   if (instSpots[i]) return instSpots[i];
   const pr = W.provs[i], [cx, cy] = pr.c;
-  const r = Math.max(6, Math.min(18, Math.min(pr.bb[2] - pr.bb[0], pr.bb[3] - pr.bb[1]) * 0.32));
+  const r = Math.max(cityR(i) + 5, Math.min(18, Math.min(pr.bb[2] - pr.bb[0], pr.bb[3] - pr.bb[1]) * 0.32));
   const rot = (hash01(i, 2) - 0.5) * 1.4, rot2 = (hash01(i, 3) - 0.5) * 0.9, taken = [];
   // the whole footprint should sit on the province's land, away from the garrison label and the other bases
   const score = (x, y, hx, hy, a) => {
     const c = Math.cos(a), s = Math.sin(a);
     let n = 0;
     for (const [u, v] of [[0, 0], [-1, -1], [1, -1], [-1, 1], [1, 1], [0, -1], [0, 1], [-1, 0], [1, 0]]) if (pointInProv(x + (u * hx) * c - (v * hy) * s, y + (u * hx) * s + (v * hy) * c, pr)) n++;
-    if (Math.hypot(x - cx, y - cy) < 4) n -= 3;
+    if (Math.hypot(x - cx, y - cy) < cityR(i) * 1.2 + hx * 0.5) n -= 3;
     for (const t of taken) if (Math.hypot(x - t[0], y - t[1]) < hx + t[2]) n -= 4;
     return n;
   };
@@ -3063,7 +3400,7 @@ function drawInstallations(s) {
   for (let i = 0; i < W.provs.length; i++) {
     const P = G.p[i], pr = W.provs[i];
     if (!(P.bar || P.apt || P.port || P.aa || P.abm) || !visible(pr.bb)) continue;
-    const o = P.owner, known = o === me || allied(me, o) || atWar(me, o) || hasIntel(o);
+    const o = P.owner, known = G.observer || o === me || allied(me, o) || atWar(me, o) || hasIntel(o);
     if (!known && s < 2.6) continue;
     const sp = spotsOf(i);
     if (P.bar) drawBarracksW(sp.bar, sp.rot2, P, known);
@@ -3158,6 +3495,190 @@ function drawAirDefW([x, y], P) {
   ctx.fillStyle = '#d8dad4'; ctx.beginPath(); ctx.arc(0, 0, r, 0, 7); ctx.fill();
   ctx.restore();
 }
+// ---------- railways between neighbouring cities of the same side ----------
+let railCache = null;
+function railLinks() {
+  const key = ownVer + ':' + Math.floor(G.day / 30);
+  if (railCache && railCache.key === key) return railCache.list;
+  const list = [];
+  for (let a = 0; a < W.provs.length; a++) for (const b of W.provs[a].landNb) {
+    if (b <= a) continue;
+    const o = G.p[a].owner;
+    if (G.p[b].owner !== o && !allied(o, G.p[b].owner)) continue;
+    const A = W.provs[a].c, B = W.provs[b].c;
+    if (Math.abs(A[0] - B[0]) > MW / 2 || Math.hypot(A[0] - B[0], A[1] - B[1]) > 160) continue;
+    // a gentle curve, as real lines follow valleys and coasts
+    const h = hash01(a * 131 + b, 4) - 0.5, C = [(A[0] + B[0]) / 2 - (B[1] - A[1]) * h * 0.25, (A[1] + B[1]) / 2 + (B[0] - A[0]) * h * 0.25];
+    list.push({ a, b, o, A, B, C, bb: [Math.min(A[0], B[0], C[0]), Math.min(A[1], B[1], C[1]), Math.max(A[0], B[0], C[0]), Math.max(A[1], B[1], C[1])] });
+  }
+  railCache = { key, list };
+  return list;
+}
+function drawRails(s) {
+  if (s < 0.9) return;
+  const me = G.player, night = mapMode === 'night';
+  ctx.save(); ctx.lineCap = 'round'; ctx.globalAlpha = Math.min(1, (s - 0.9) / 0.4);
+  for (const L of railLinks()) {
+    if (!visible(L.bb)) continue;
+    const known = G.observer || L.o === me || allied(me, L.o) || atWar(me, L.o);
+    if (!known && s < 2.2) continue;
+    const cut = railCut(L.a) || railCut(L.b);
+    const path = () => { ctx.beginPath(); ctx.moveTo(L.A[0], L.A[1]); ctx.quadraticCurveTo(L.C[0], L.C[1], L.B[0], L.B[1]); };
+    if (cut) ctx.setLineDash([2.2, 1.6]);
+    path(); ctx.strokeStyle = night ? 'rgba(255, 200, 120, 0.3)' : 'rgba(38, 34, 30, 0.75)'; ctx.lineWidth = hair(0.3); ctx.stroke();
+    if (!night && s * dpr > 2.5) { path(); ctx.setLineDash([0.35, 0.3]); ctx.strokeStyle = 'rgba(178, 168, 152, 0.85)'; ctx.lineWidth = hair(0.12); ctx.stroke(); }
+    ctx.setLineDash([]);
+    if (cut) { const m = bez(L.A, L.B, L.C, 0.5); ctx.fillStyle = 'rgba(18, 12, 8, 0.85)'; ctx.beginPath(); ctx.arc(m[0], m[1], 0.9, 0, 7); ctx.fill(); }
+  }
+  ctx.restore();
+}
+// ---------- cities: built-up areas that grow with the economy, lights at night, ruins after a nuclear strike ----------
+const cityCache = [];
+const cityR = i => Math.min(10, 1.5 + Math.sqrt(W.provs[i].pop / 1e6) * 2.4);
+function cityOf(i) {
+  if (cityCache[i]) return cityCache[i];
+  const r = cityR(i), n = Math.min(150, Math.round(12 + r * r * 5)), blocks = [];
+  for (let k = 0; k < n; k++) {
+    const rr = r * Math.pow(hash01(i * 17 + k, 11), 0.65), th = hash01(i * 29 + k, 12) * Math.PI * 2, g = 0.42;
+    blocks.push([Math.round(Math.cos(th) * rr / g) * g, Math.round(Math.sin(th) * rr * 0.85 / g) * g, 0.2 + hash01(i + k * 3, 13) * 0.17, 0.2 + hash01(i + k * 5, 14) * 0.17, Math.floor(hash01(i * 3 + k, 15) * 5)]);
+  }
+  return (cityCache[i] = { r, ang: hash01(i, 9) * Math.PI, blocks });
+}
+const CITY_COL = ['#b3ada4', '#96918b', '#c8c0b2', '#85827e', '#d2ccc2'];
+function drawCities(s, night) {
+  if (s < 0.8) return;
+  for (let i = 0; i < W.provs.length; i++) {
+    const pr = W.provs[i];
+    if (!visible(pr.bb)) continue;
+    const C = cityOf(i), k = 0.75 + G.p[i].eco * 0.07;
+    if (C.r * k * s < 2.5) continue;
+    const ruined = radLeft(i) > 0;
+    ctx.save(); ctx.translate(pr.c[0], pr.c[1]); ctx.rotate(C.ang); ctx.scale(k, k);
+    ctx.globalAlpha = Math.min(1, (C.r * k * s - 2.5) / 4);
+    if (night) {
+      if (!ruined) {
+        const g = ctx.createRadialGradient(0, 0, 0, 0, 0, C.r * 1.8);
+        g.addColorStop(0, 'rgba(255, 196, 110, 0.5)'); g.addColorStop(1, 'rgba(255, 160, 60, 0)');
+        ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, 0, C.r * 1.8, 0, 7); ctx.fill();
+        ctx.fillStyle = '#ffd48a';
+        for (const b of C.blocks) if (b[4] % 2 === 0) ctx.fillRect(b[0], b[1], b[2] * 0.55, b[3] * 0.55);
+      }
+    } else {
+      groundPatch(0, 0, C.r * 1.45, C.r * 1.25, ruined ? 'rgba(40, 34, 28, 0.6)' : 'rgba(150, 142, 130, 0.55)');
+      ctx.strokeStyle = 'rgba(95, 90, 84, 0.8)'; ctx.lineWidth = hair(0.12);
+      ctx.beginPath(); ctx.ellipse(0, 0, C.r * 0.95, C.r * 0.8, 0, 0, 7);
+      for (let a = 0; a < 4; a++) { ctx.moveTo(0, 0); ctx.lineTo(Math.cos(a * 1.57 + 0.3) * C.r * 1.3, Math.sin(a * 1.57 + 0.3) * C.r * 1.1); }
+      ctx.stroke();
+      for (const b of C.blocks) {
+        if (ruined && (b[4] & 1)) continue;
+        ctx.fillStyle = ruined ? '#2c2723' : CITY_COL[b[4]];
+        ctx.fillRect(b[0] - b[2] / 2, b[1] - b[3] / 2, b[2], b[3]);
+      }
+    }
+    ctx.restore();
+  }
+}
+// ---------- freight trains running on the railways ----------
+function drawTrains() {
+  const s = cam.s;
+  if (s < 1.3 || mapMode === 'pol') return;
+  const wl = Math.max(2.4, Math.min(8, 0.8 * s)), ww = wl * 0.42, night = mapMode === 'night';
+  let n = 0;
+  for (const L of railLinks()) {
+    if (n >= 36) break;
+    if (railCut(L.a) || railCut(L.b) || hash01(L.a * 131 + L.b, 7) > 0.55) continue;
+    if (!G.observer && L.o !== G.player && !allied(G.player, L.o) && s < 2.2) continue;
+    const m = scr(bez(L.A, L.B, L.C, 0.5));
+    if (m[0] < -80 || m[1] < -80 || m[0] > vw + 80 || m[1] > vh + 80) continue;
+    const len = ptDist(L.A, L.B), per = len / 22, ph = ((G.time / per + hash01(L.a + L.b * 7, 8) * 2) % 2 + 2) % 2;
+    const fwd = ph < 1, t = fwd ? ph : 2 - ph, dt = (wl * 1.15 / s) / len * (fwd ? -1 : 1);
+    n++;
+    for (let k = 0; k < 6; k++) {
+      const tk = t + dt * k;
+      if (tk < 0 || tk > 1) continue;
+      const p = scr(bez(L.A, L.B, L.C, tk)), q = scr(bez(L.A, L.B, L.C, Math.min(1, tk + 0.01)));
+      ctx.save(); ctx.translate(p[0], p[1]); ctx.rotate(Math.atan2(q[1] - p[1], q[0] - p[0]));
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.35)'; ctx.fillRect(-wl / 2 + 1, -ww / 2 + 1, wl * 0.92, ww);
+      ctx.fillStyle = k === 0 ? (night ? '#ffdf9a' : '#a8342a') : ['#5d6168', '#6f5b46', '#41695a', '#7b7e84'][(L.a + k) % 4];
+      ctx.fillRect(-wl / 2, -ww / 2, wl * 0.92, ww);
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.18)'; ctx.fillRect(-wl / 2, -ww / 2, wl * 0.92, ww * 0.35);
+      ctx.restore();
+    }
+  }
+}
+// ---------- merchant ships sailing between a country's ports ----------
+const laneCache = new Map();
+function mkLane(pts) { const cum = [0]; for (let k = 1; k < pts.length; k++) cum.push(cum[k - 1] + ptDist(pts[k - 1], pts[k])); return { pts, cum, len: cum[cum.length - 1] }; }
+function laneAt(L, d) {
+  let k = 1;
+  while (k < L.cum.length - 1 && L.cum[k] < d) k++;
+  const a = L.pts[k - 1], b = L.pts[k], t = Math.max(0, Math.min(1, (d - L.cum[k - 1]) / ((L.cum[k] - L.cum[k - 1]) || 1)));
+  let bx = b[0]; if (Math.abs(bx - a[0]) > MW / 2) bx += bx > a[0] ? -MW : MW;
+  let x = a[0] + (bx - a[0]) * t; if (x < 0) x += MW; else if (x > MW) x -= MW;
+  return [x, a[1] + (b[1] - a[1]) * t, Math.atan2(b[1] - a[1], bx - a[0])];
+}
+function drawMerchant(x, y, ang, s, seed, night) {
+  ctx.save(); ctx.translate(x, y); ctx.rotate(ang);
+  ctx.strokeStyle = 'rgba(235, 244, 255, 0.35)'; ctx.lineWidth = Math.max(0.6, s * 0.12);
+  ctx.beginPath(); ctx.moveTo(-s * 1.4, 0); ctx.lineTo(-s * 3.4, 0); ctx.stroke();
+  const hull = () => { ctx.beginPath(); ctx.moveTo(s * 1.5, 0); ctx.quadraticCurveTo(s * 1.25, -s * 0.34, s * 0.8, -s * 0.36); ctx.lineTo(-s * 1.35, -s * 0.36); ctx.lineTo(-s * 1.35, s * 0.36); ctx.lineTo(s * 0.8, s * 0.36); ctx.quadraticCurveTo(s * 1.25, s * 0.34, s * 1.5, 0); ctx.closePath(); };
+  ctx.save(); ctx.translate(s * 0.12, s * 0.16); hull(); ctx.fillStyle = 'rgba(0, 0, 0, 0.3)'; ctx.fill(); ctx.restore();
+  hull(); ctx.fillStyle = '#2f3a44'; ctx.fill();
+  const cols = ['#a4523f', '#3f6a8f', '#b58d3f', '#5d8a62', '#8b8f95'];
+  for (let k = 0; k < 6; k++) {
+    ctx.fillStyle = cols[(k * 3 + seed) % 5]; ctx.fillRect(-s * 0.95 + k * s * 0.32, -s * 0.27, s * 0.28, s * 0.25);
+    ctx.fillStyle = cols[(k * 7 + seed + 2) % 5]; ctx.fillRect(-s * 0.95 + k * s * 0.32, s * 0.02, s * 0.28, s * 0.25);
+  }
+  ctx.fillStyle = '#e8e8e2'; ctx.fillRect(-s * 1.28, -s * 0.3, s * 0.26, s * 0.6);
+  if (night) { ctx.fillStyle = '#ffe2a0'; ctx.fillRect(-s * 1.25, -s * 0.1, s * 0.12, s * 0.2); }
+  ctx.restore();
+}
+function drawMerchants() {
+  const s = cam.s;
+  if (s < 1.1 || mapMode === 'pol') return;
+  const sz = Math.max(3.4, Math.min(10, 1.2 * s)), night = mapMode === 'night';
+  let budget = 2, drawn = 0;
+  for (let n = 0; n < G.n.length && drawn < 30; n++) {
+    const NP = nationPaths[n];
+    if (!NP || !G.n[n].alive) continue;
+    const bb = NP.bb;
+    if (bb[2] * s + cam.x < -100 || bb[0] * s + cam.x > vw + 100 || bb[3] * s + cam.y < -100 || bb[1] * s + cam.y > vh + 100) continue;
+    const ports = provsOf(n).filter(i => G.p[i].port && W.provs[i].sp && !blockaded(i)).sort((a, b) => W.provs[a].sp[0] - W.provs[b].sp[0]);
+    for (let k = 0; k + 1 < ports.length && k < 4; k++) {
+      const a = ports[k], b = ports[k + 1], key = a + '-' + b;
+      let L = laneCache.get(key);
+      if (L === undefined) {
+        if (budget-- <= 0) continue;
+        const r = seaRoute(W.provs[a].sp, W.provs[b].sp);
+        L = r ? mkLane([W.provs[a].sp, ...r, W.provs[b].sp]) : null;
+        if (L && L.len > 1500) L = null;
+        laneCache.set(key, L);
+      }
+      if (!L || L.len < 10) continue;
+      const ph = ((G.time * 30 / L.len + hash01(a + b * 3, 6) * 2) % 2 + 2) % 2, fwd = ph < 1;
+      const [x, y, ang] = laneAt(L, (fwd ? ph : 2 - ph) * L.len);
+      const [px, py] = scr([x, y]);
+      if (px < -30 || py < -30 || px > vw + 30 || py > vh + 30) continue;
+      drawMerchant(px, py, fwd ? ang : ang + Math.PI, sz, (a + b) % 5, night);
+      drawn++;
+    }
+  }
+}
+// ---------- the radioactive cloud drifting with the wind ----------
+function drawPlumes() {
+  for (let k = plumes.length - 1; k >= 0; k--) if (G.time - plumes[k].t > 45) plumes.splice(k, 1);
+  for (const P of plumes) {
+    const age = G.time - P.t, L = Math.min(220, 20 + age * 16), f = age / 45;
+    const [x, y] = scr([P.x + Math.cos(P.a) * L * 0.5, P.y + Math.sin(P.a) * L * 0.5]);
+    const rx = L * 0.55 * cam.s, ry = (10 + L * 0.12) * cam.s;
+    ctx.save(); ctx.translate(x, y); ctx.rotate(P.a); ctx.scale(1, ry / rx);
+    const g = ctx.createRadialGradient(0, 0, 0, 0, 0, rx);
+    g.addColorStop(0, `rgba(196, 204, 120, ${0.32 * (1 - f)})`); g.addColorStop(0.6, `rgba(170, 176, 100, ${0.18 * (1 - f)})`); g.addColorStop(1, 'rgba(150, 160, 90, 0)');
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, 0, rx, 0, 7); ctx.fill();
+    ctx.restore();
+  }
+}
+const mixRGB = (a, b, t) => { t = Math.max(0, Math.min(1, t)); return a.map((v, k) => Math.round(v + (b[k] - v) * t)).join(', '); };
 // scorched ground left by bombs, missiles and nuclear strikes
 function drawScorches() {
   for (let k = scorches.length - 1; k >= 0; k--) if (G.time - scorches[k].t > scorches[k].life) scorches.splice(k, 1);
@@ -3325,6 +3846,7 @@ function unitLabel(text, x, y) {
 // ---------- units standing on the map ----------
 // enemy submarines on their own stay hidden unless one of your fleets or ports is close (or your spies found them)
 function subSeen(u) {
+  if (G.player < 0) return true;
   if (u.owner === G.player || u.kind !== 'fleet' || !u.s) return true;
   if ((G.n[G.player].intel || {})[u.owner] > G.day) return true;
   const p = [u.x, u.y];
@@ -3459,11 +3981,11 @@ function draw(now) {
 function frame(ts) {
   requestAnimationFrame(frame);
   const running = gameStep(ts);
-  if (!(needsDraw || running || anims.length || (phase === 'play' && marks.length))) return;
+  if (!(needsDraw || running || anims.length || (phase === 'play' && (marks.length || plumes.length)))) return;
   needsDraw = false;
   draw(ts);
 }
-const markColor = n => mapMode === 'sat' && earthReady ? (relation(n) === 'none' ? '#c9d2de' : relColor(n)) : W.nations[n].color;
+const markColor = n => mapMode !== 'pol' && earthReady ? (relation(n) === 'none' ? '#c9d2de' : relColor(n)) : W.nations[n].color;
 const iconPaths = {};
 function drawIcon(kind, x, y, size, color) {
   const [mode, d] = ICON_PATHS[kind];
@@ -3666,6 +4188,7 @@ function tap(sx, sy) {
     if (!multi) { selected = mk.prov; selUnit = 0; selMove = 0; panelOpen = false; }
     renderPanel(); requestRender(); return;
   }
+  if (G.player < 0) { selected = i; renderPanel(); staticDirty = true; requestRender(); return; }
   if (moveMode === 'nuke') {
     if (i >= 0 && atWar(G.player, G.p[i].owner)) { nukeAim = i; selected = i; }
     else toast('Tocca una provincia di un paese in guerra con te.');
@@ -3739,10 +4262,18 @@ function announce(kind, name, prov) {
 function esc(s) { return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
 const popStr = n => n >= 1e6 ? (n / 1e6).toFixed(1).replace('.', ',') + ' mln' : Math.round(n / 1000) + ' mila';
 
-let scenKey = 'peace';
+let scenKey = 'peace', modeKey = 'play';
+const MODES = {
+  play: { name: 'Comanda', desc: '' },
+  watch: { name: 'Osserva', desc: 'Il mondo va avanti da solo: guarda nascere guerre, alleanze e crisi nucleari. Tocca una provincia per intervenire come un dio: eserciti, terremoti, guerre, colpi di stato, atomiche.' },
+  duel: { name: 'Duello', desc: 'Tu contro la potenza nucleare rivale, subito a DEFCON 1. Distruggi il 65% delle sue città prima che lui distrugga le tue. Scudi antimissile e contraerea contano.' },
+};
 function renderScen() {
+  $('modeSeg').innerHTML = Object.entries(MODES).map(([k, v]) => `<button class="${k === modeKey ? 'on' : ''}" data-mode2="${k}">${v.name}</button>`).join('');
+  for (const b of document.querySelectorAll('[data-mode2]')) b.onclick = () => { modeKey = b.dataset.mode2; renderScen(); updateIntro(); };
+  $('scenSeg').hidden = modeKey === 'duel';
   $('scenSeg').innerHTML = Object.entries(SCENARIOS).map(([k, v]) => `<button class="${k === scenKey ? 'on' : ''}" data-scen="${k}">${v.name}<small>${v.year}</small></button>`).join('');
-  $('scenDesc').textContent = SCENARIOS[scenKey].desc;
+  $('scenDesc').textContent = MODES[modeKey].desc || SCENARIOS[scenKey].desc;
   $('introEye').textContent = 'Strategia in tempo reale · ' + SCENARIOS[scenKey].name;
   for (const b of document.querySelectorAll('[data-scen]')) b.onclick = () => {
     scenKey = b.dataset.scen;
@@ -3752,6 +4283,7 @@ function renderScen() {
 }
 function updateIntro() {
   const box = $('pickInfo');
+  if (modeKey === 'watch') { box.innerHTML = '<span class="sub">Nessun paese da scegliere: osservi il mondo intero.</span>'; $('startBtn').disabled = false; $('startBtn').textContent = 'Guarda il mondo'; return; }
   if (pickNation < 0) { box.innerHTML = '<span class="sub">Tocca un paese sulla mappa per sceglierlo. Pizzica per lo zoom.</span>'; $('startBtn').disabled = true; $('startBtn').textContent = 'Gioca'; return; }
   const ps = provsOf(pickNation);
   const cap = W.provs[G.n[pickNation].capital];
@@ -3761,17 +4293,26 @@ function updateIntro() {
       <span><em>${fmt(armyOf(pickNation))}</em> soldati</span><span><em>+${income(pickNation).net}</em> oro/mese</span>
       ${G.n[pickNation].nukes ? `<span><em>${G.n[pickNation].nukes}</em> testate nucleari</span>` : ''}</div></div>`;
   $('startBtn').disabled = false;
-  $('startBtn').textContent = 'Gioca con ' + nat(pickNation).place;
+  $('startBtn').textContent = (modeKey === 'duel' ? 'Duello con ' : 'Gioca con ') + nat(pickNation).place;
 }
 
+// short date for the top bar, so the DEFCON level always fits
+const shortDate = day => (Math.floor(day) % 30 + 1) + ' ' + MONTHS[Math.floor(day / 30) % 12] + ' ' + String(((G && G.y0) || START_YEAR) + Math.floor(day / 360)).slice(2);
+const defconChip = () => `<span class="dcl" style="color:${DEFCON_COL[G.defcon]}">DEFCON ${G.defcon}</span>`;
 function updateHUD() {
-  if (phase === 'pick' || G.player < 0) return;
+  if (phase === 'pick') return;
+  if (G.player < 0) {
+    $('topFlag').style.background = '#5d6b80'; $('topName').textContent = 'Osservatore';
+    $('topDate').innerHTML = `${defconChip()} · ${shortDate(G.day)}`;
+    $('topGold').textContent = `${G.n.reduce((s, x) => s + (x.alive ? x.wars.length : 0), 0) / 2} guerre`;
+    return;
+  }
   const me = G.player, inc = income(me), x = G.n[me];
   $('topFlag').style.background = nat(me).color;
   $('topName').textContent = nat(me).place;
   const st = Math.round(x.stab);
   // stability only shows up here when it starts to be a problem
-  $('topDate').innerHTML = `${dateStr(G.day)}${st < 50 ? ` · <span class="${st < 35 ? 'neg' : ''}">stab. ${st}</span>` : ''}${sanctioned(me) ? ' · <span class="neg">sanzioni</span>' : ''}`;
+  $('topDate').innerHTML = `${defconChip()} · ${shortDate(G.day)}${st < 50 ? ` · <span class="${st < 35 ? 'neg' : ''}">stab. ${st}</span>` : ''}${sanctioned(me) ? ' · <span class="neg">sanzioni</span>' : ''}`;
   $('nukeCount').textContent = x.nukes;
   $('topGold').innerHTML = `${Math.floor(x.gold)} <small class="${inc.net < 0 ? 'neg' : ''}">${inc.net >= 0 ? '+' : ''}${inc.net}</small>`;
 }
@@ -3780,6 +4321,7 @@ function updateUI() { updateHUD(); renderPanel(); }
 // the panel follows the game live, but never rebuilds under a finger on the slider
 let sliderBusy = false, panelSig = '', moveKeep = 0;
 function panelSignature(i) {
+  if (G.player < 0) return 'god' + i + ':' + G.day + ':' + (i >= 0 ? G.p[i].owner + ':' + G.p[i].army : '');
   const pre = [multi, multiSel.units.size, multiSel.provs.size, selMove, selMove ? Math.floor(G.time) : 0, nukeAim, wayMode, wayPts.length, G.n[G.player].nukes].join() + '|';
   if (i < 0) { const u = unitById(selUnit) || {}; return pre + 'u' + selUnit + u.n + ':' + u.t + ':' + u.af + ':' + u.ab + moveMode + G.units.length; }
   const P = G.p[i], me = G.player;
@@ -3788,6 +4330,7 @@ function panelSignature(i) {
 }
 function refreshPanel() {
   if ((selected < 0 && !selUnit && !selMove && !multi && moveMode !== 'nuke') || sliderBusy || phase !== 'play') return;
+  if (G.player < 0) { if (panelSignature(selected) !== panelSig) renderPanel(); return; }
   if (panelSignature(selected) !== panelSig) renderPanel();
   if (dashOpen) renderDash();
 }
@@ -3810,7 +4353,7 @@ const MODE_HINT = {
   air: 'Tocca un bersaglio nel cerchio, o una tua provincia qualsiasi per trasferire gli aerei',
   sea: 'Tocca un punto sul mare, un tuo porto, o la costa di un nemico',
   missile: 'Tocca una provincia o unità nemica nel cerchio: un missile per tocco',
-  nuke: 'Tocca una provincia nemica (in rosso), poi conferma il lancio. Uno scudo antimissile può fermare la testata (35%).',
+  nuke: 'Tocca una provincia nemica (in rosso), poi conferma il lancio. Uno scudo antimissile può fermare la testata (35%). La ricaduta radioattiva va dove soffia il vento.',
   group: 'Tocca il punto di arrivo: tutti i gruppi selezionati partono insieme',
 };
 function moveSource() {
@@ -3826,7 +4369,7 @@ function slimBar(src) {
   if (src.nuke || src.group) {
     if (src.nuke) {
       const n = G.n[G.player].nukes;
-      line = `<span class="mi" style="color:#d4f25a"><svg class="ic"><use href="#i-nuke"/></svg></span><b>${n} ${n === 1 ? 'testata' : 'testate'}</b>`;
+      line = `<span class="mi" style="color:#d4f25a"><svg class="ic"><use href="#i-nuke"/></svg></span><b>${n} ${n === 1 ? 'testata' : 'testate'} · vento verso ${windWord()}</b>`;
       if (nukeAim >= 0) extra = `<div class="btns"><button class="pb nuke" id="nGo">☢︎ Lancia su ${esc(pname(nukeAim))}</button></div>`;
     } else {
       const g = groupInfo();
@@ -3926,9 +4469,35 @@ function toggleMulti(on) {
   $('multiBtn').classList.toggle('on', on);
   renderPanel(); staticDirty = true; requestRender();
 }
+function renderGodPanel() {
+  const panel = $('panel'), i = selected;
+  if (i < 0) { panel.hidden = true; return; }
+  const P = G.p[i], o = P.owner, L = G.lead[o];
+  const wars = G.n[o].wars.filter(w => G.n[w].alive);
+  panel.className = 'glass';
+  panel.innerHTML = `<div class="head"><span class="chip" style="background:${nat(o).color}"></span>
+    <div style="min-width:0;flex:1"><h2>${esc(pname(i))}</h2>
+    <div class="sub">${esc(fullName(o))}${L ? ` · ${esc(L.title)} ${esc(L.name)}, ${TEMPER[L.temper].name}` : ''}</div></div>
+    <button class="icon-btn" id="closePanel" aria-label="Chiudi"><svg><use href="#i-close"/></svg></button></div>
+    <div class="frow"><span class="fc"><i>${ICON.inf}</i>${fmt(P.army)}</span>${P.tnk ? `<span class="fc"><i>${ICON.tnk}</i>${P.tnk}</span>` : ''}<span class="fc"><i>${ICON.eco}</i>${P.eco}/5</span>${G.n[o].nukes ? `<span class="fc"><i><svg class="ic"><use href="#i-nuke"/></svg></i>${G.n[o].nukes}</span>` : ''}</div>
+    <div class="sub">${wars.length ? 'In guerra con ' + wars.slice(0, 4).map(w => esc(nat(w).place)).join(', ') : 'In pace'}</div>
+    <div class="sect">Intervento divino</div>
+    <div class="actions">
+      <button class="act" data-god="army"><span class="gi">${ICON.inf}</span>+10.000 soldati</button>
+      <button class="act" data-god="disaster"><span class="gi">${ICON.eco}</span>Terremoto</button>
+      <button class="act war" data-god="war"><span class="gi">⚔︎</span>Scatena guerra</button>
+      <button class="act peace" data-god="peace"><span class="gi">☮︎</span>Imponi pace</button>
+      <button class="act" data-god="coup"><span class="gi">${ICON.fort}</span>Colpo di stato</button>
+      <button class="act nuke" data-god="nuke"><span class="gi"><svg class="ic"><use href="#i-nuke"/></svg></span>Atomica</button>
+    </div>`;
+  panel.hidden = false;
+  $('closePanel').onclick = () => { selected = -1; renderPanel(); staticDirty = true; requestRender(); };
+  for (const b of panel.querySelectorAll('[data-god]')) b.onclick = () => godAction(b.dataset.god, i);
+}
 function renderPanel() {
   const panel = $('panel');
   if (phase !== 'play') { panel.hidden = true; return; }
+  if (G.player < 0) { panelSig = panelSignature(selected); return renderGodPanel(); }
   if (selUnit && !unitById(selUnit)) selUnit = 0;
   if (selMove && !G.moves.some(m => m.id === selMove)) selMove = 0;
   panelSig = panelSignature(selected);
@@ -3963,6 +4532,7 @@ function renderPanel() {
   if (blockaded(i)) tags.push('<span class="tag war">Porto bloccato</span>');
   if (!P.sup) tags.push('<span class="tag truce">Senza rifornimenti</span>');
   if (recentlyBombed(i)) tags.push('<span class="tag war">Bombardata</span>');
+  if (railCut(i)) tags.push(`<span class="tag war">Ferrovia interrotta ${Math.ceil(G.p[i].rail - G.day)} g</span>${mine ? `<button class="btn sm" id="aRail" ${gold < 30 ? 'disabled' : ''}>Ripara · 30</button>` : ''}`);
   if (P.rev) tags.push(`<span class="tag war">In rivolta</span>${mine ? `<button class="btn sm" id="aRepress" ${gold < 40 ? 'disabled' : ''}>Reprimi · 40</button>` : ''}`);
   if (!mine && hasIntel(o)) tags.push('<span class="tag ally">Spie attive</span>');
   const guards = unitsIn(i, o).reduce((s, u) => s + u.n, 0);
@@ -3979,7 +4549,8 @@ function renderPanel() {
 
   let html = `<div class="head"><span class="chip" style="background:${nat(o).color}"></span>
     <div style="min-width:0;flex:1"><h2>${esc(pr.name)}${isCap ? '<span class="cap-badge">Capitale</span>' : ''}</h2>
-    <div class="sub">${esc(fullName(o))} · +${provIncome(i)} oro/mese${mine ? '' : ` · rapporti ${relOf(o) > 0 ? '+' : ''}${relOf(o)}`}</div></div>
+    <div class="sub">${esc(fullName(o))} · +${provIncome(i)} oro/mese${mine ? '' : ` · rapporti ${relOf(o) > 0 ? '+' : ''}${relOf(o)}`}</div>
+    ${!mine && G.lead[o] ? `<div class="sub">${esc(leaderLine(o))} · <span class="${G.lead[o].temper === 'aggr' ? 'neg' : G.lead[o].temper === 'paci' ? 'pos' : ''}">${TEMPER[G.lead[o].temper].name}</span></div>` : ''}</div>
     <button class="icon-btn" id="closePanel" aria-label="Chiudi"><svg><use href="#i-close"/></svg></button></div>
     ${forces}${tags.length ? `<div class="vs">${tags.join('')}</div>` : ''}${fights}`;
 
@@ -4040,6 +4611,7 @@ function renderPanel() {
   panel.hidden = false;
   $('closePanel').onclick = () => { selected = -1; moveMode = false; panelOpen = false; pendingConfirm = null; renderPanel(); staticDirty = true; requestRender(); };
   if ($('aRepress')) $('aRepress').onclick = () => repress(i);
+  if ($('aRail')) $('aRail').onclick = () => { if (spend(30)) { G.p[i].rail = 0; staticDirty = true; news(`Ferrovia riparata a ${pname(i)}.`, 'good', i); afterAction(); } };
   for (const b of panel.querySelectorAll('[data-retreat]')) b.onclick = () => {
     const bt = G.battles.find(x => x.id === +b.dataset.retreat);
     if (bt) { retreat(bt); toast(`Ritirata da ${pname(i)}: i superstiti tornano indietro.`); afterAction(); }
@@ -4108,6 +4680,7 @@ function renderDash() {
       <div class="kpi"><span>Carri armati</span><b>${f.tnk}</b><small>${G.battles.filter(b => b.owner === me || G.p[b.prov].owner === me).length} battaglie in corso</small></div>
       <button class="kpi nukek" id="dNuke"><span>Testate nucleari</span><b>${x.nukes}</b><small>${x.prog > 0 ? `pronto tra ${Math.ceil((x.prog - G.day) / 30)} mesi` : x.prog === 0 ? 'apri l\'arsenale' : 'avvia un programma'}</small></button>
     </div>
+    <div class="defconbox" style="border-color:${DEFCON_COL[G.defcon]}"><b style="color:${DEFCON_COL[G.defcon]}">DEFCON ${G.defcon}</b><span class="sub">${DEFCON_TXT[G.defcon]}. Tensione mondiale ${G.tension || 0}/100. Le testate si lanciano solo a DEFCON 2 o 1. Vento verso ${windWord()}.</span></div>
     <div class="vs"><span class="tag war">${x.wars.length} guerre</span><span class="tag ally">${x.allies.length} alleati</span><span class="tag truce">${Object.keys(G.truce).filter(k => k.split('-').map(Number).includes(me)).length} tregue</span></div>
     ${G.goals ? `<h3>Obiettivi di vittoria</h3>${Object.keys(GOALS).map(k => { const pr = goalProgress(k), done = G.won.includes(k);
       return `<div class="goal ${done ? 'done' : ''}"><div class="ch"><b>${GOALS[k].name}</b><span class="sub">${esc(GOALS[k].what(G.goals))}</span><span class="rv">${done ? '✓' : Math.floor(pr * 100) + '%'}</span></div><div class="meterbar"><i style="width:${done ? 100 : pr * 100}%"></i></div></div>`; }).join('')}<p class="sub">Più la conquista del mondo intero. ${G.capLost ? 'La capitale è caduta: la vittoria di sopravvivenza non è più possibile.' : ''}</p>` : ''}
@@ -4161,7 +4734,7 @@ function renderDash() {
   } else if (dashTab === 'gov') {
     const st = Math.round(x.stab), tgt = Math.round(stabTarget(me));
     const revs = mine.filter(i => G.p[i].rev);
-    body = `<div class="kpis">
+    body = `${G.lead[me] ? `<p class="sub">Guidi il paese come ${esc(leaderLine(me))}, in carica dal ${dateStr(G.lead[me].since)}.</p>` : ''}<div class="kpis">
       <div class="kpi"><span>Stabilità</span><b class="${st < 35 ? 'neg' : st >= 60 ? 'pos' : ''}">${st}</b><small>tende a ${tgt} · ${st < 20 ? 'rivolte' : st < 35 ? 'proteste: rendita −15%' : st < 60 ? 'tranquilla' : 'popolo soddisfatto'}</small></div>
       <div class="kpi"><span>ONU</span><b class="${sanctioned(me) ? 'neg' : 'pos'}">${sanctioned(me) ? 'Sanzioni' : 'In regola'}</b><small>${sanctioned(me) ? `ancora ${Math.ceil((x.sanc - G.day) / 30)} mesi: rendita −25%` : 'nessuna sanzione'}</small></div>
     </div>
@@ -4329,16 +4902,22 @@ function showMenu() {
       <li>L'ONU sanziona chi attacca senza motivo o usa armi nucleari; aiuta chi viene aggredito.</li>
       <li>Risorse: petrolio, acciaio e cibo. Si producono nelle province e si comprano o vendono nel Commercio.</li>
       <li>Spie: tocca una provincia straniera e premi Spie per infiltrarti, sabotare o rubare tecnologie.</li>
+      <li>DEFCON: l'allerta mondiale va da 5 (pace) a 1. Sale con le guerre tra grandi potenze e con i lanci. Le testate si possono usare solo a DEFCON 2 o 1.</li>
+      <li>Ogni paese ha un capo con il suo carattere (aggressivo, prudente, pacifico, imprevedibile) che decide guerre e paci. I capi invecchiano, muoiono o perdono le elezioni.</li>
+      <li>Ferrovie: collegano le tue città. Bombardamenti, missili e sabotaggi le interrompono: rifornimenti e produzione rallentano finché non le ripari.</li>
+      <li>La ricaduta radioattiva di un'atomica segue il vento e contamina le province sottovento.</li>
       <li>I segnali rossi pulsanti sulla mappa indicano attacchi e allarmi recenti: toccali per andarci.</li>
       <li>Il pulsante ☢ in basso a sinistra apre la modalità nucleare. Il giornale raccoglie tutte le notizie.</li>
     </ul>
     <label class="toggle"><input type="checkbox" id="mAuto" ${G.autoPause ? 'checked' : ''}> Pausa automatica sugli allarmi gravi (guerra dichiarata, capitale attaccata, armi nucleari)</label>
+    <label class="toggle"><input type="checkbox" id="mSound" ${soundOn ? 'checked' : ''}> Suoni: esplosioni, lanci, sirene di allarme</label>
     <div class="row"><button class="btn" id="mSlots">Salvataggi</button><button class="btn" id="mTut">Rivedi tutorial</button></div>
     <div class="row"><button class="btn primary" id="mClose">Riprendi</button><button class="btn" id="mNew">Nuova partita</button></div>`, () => {
     $('mClose').onclick = hideModal;
     $('mSlots').onclick = () => { hideModal(); showSlots(true); };
     $('mTut').onclick = () => { hideModal(); startTutorial(); };
     $('mAuto').onchange = e => { G.autoPause = e.target.checked; save(); };
+    $('mSound').onchange = e => { soundOn = e.target.checked; try { localStorage.setItem('tdc-sound', soundOn ? '1' : '0'); } catch (er) {} if (soundOn) audio(); };
     $('mNew').onclick = () => {
       if ($('mNew').dataset.c) { clearSaved(); modalQueue.length = 0; hideModal(); toIntro(); }
       else { $('mNew').dataset.c = '1'; $('mNew').textContent = 'Conferma: perdi la partita attuale'; }
@@ -4357,6 +4936,7 @@ function toIntro() {
   feed.length = 0; unread = 0;
   renderScen();
   $('top').hidden = true; $('clock').hidden = true; $('panel').hidden = true; $('nukeBtn').hidden = true; $('multiBtn').hidden = true; marks.length = 0;
+  $('dashBtn').hidden = false; $('duelBar').hidden = true; plumes.length = 0;
   multi = false; multiSel.units.clear(); multiSel.provs.clear(); selMove = 0; selUnit = 0; moveMode = false; nukeAim = -1; wayMode = ''; wayPts = []; $('banner').hidden = true; closeDash();
   $('intro').hidden = false;
   $('continueBtn').hidden = !loadSaved();
@@ -4373,12 +4953,23 @@ function startPlay() {
   staticDirty = true;
   updateUI(); resize();
 }
+function startWatch() {
+  G.player = -1; G.observer = true; selected = -1;
+  updateDefcon(true);
+  centerOn(MW / 2, MH * 0.45, minScale() * 1.6, 0.45);
+  startPlay();
+  $('nukeBtn').hidden = true; $('multiBtn').hidden = true; $('dashBtn').hidden = true;
+  setSpeed(2);
+  toast('Osservi il mondo. Tocca una provincia per intervenire come un dio.', 'good');
+}
 $('startBtn').onclick = () => {
+  if (modeKey === 'watch') return startWatch();
   if (pickNation < 0) return;
   G.player = pickNation; selected = G.n[pickNation].capital;
   const c = W.provs[selected].c;
   centerOn(c[0], c[1], Math.max(cam.s, vw / 420), 0.25);
-  setGoals();
+  if (modeKey === 'duel') { setupDuel(); updateDuelBar(); } else setGoals();
+  updateDefcon(true);
   startPlay(); save();
   const wars = G.n[G.player].wars.filter(w => G.n[w].alive);
   toast(`Governi ${fullName(pickNation)}.${wars.length ? ` Sei già in guerra con ${wars.map(fullName).join(', ')}!` : ' Il tempo scorre: buona fortuna.'}`, wars.length ? 'bad' : 'good');
@@ -4387,7 +4978,8 @@ $('startBtn').onclick = () => {
 $('loadBtn').onclick = () => showSlots(false);
 $('continueBtn').onclick = () => {
   if (!restore(loadSaved())) return;
-  if (!G.goals) setGoals();
+  if (!G.goals && !G.duel) setGoals();
+  updateDuelBar();
   selected = -1;
   const c = W.provs[G.n[G.player].capital].c;
   centerOn(c[0], c[1], Math.max(cam.s, vw / 700), 0.4);
@@ -4402,10 +4994,10 @@ $('dashBtn').onclick = () => openDash();
 $('nukeBtn').onclick = () => { if (phase === 'play') enterNukeMode(); };
 $('multiBtn').onclick = () => { if (phase !== 'play') return; toggleMulti(!multi); if (multi) toast('Selezione multipla: trascina un dito sulla mappa per scegliere le unità.'); };
 $('layerBtn').onclick = () => {
-  mapMode = mapMode === 'sat' ? 'pol' : 'sat';
+  mapMode = mapMode === 'sat' ? 'night' : mapMode === 'night' ? 'pol' : 'sat';
   try { localStorage.setItem('tdc-mapmode', mapMode); } catch (e) {}
   bordersDirty = true; staticDirty = true; requestRender();
-  toast(mapMode === 'sat' ? 'Mappa satellitare' : 'Mappa politica a colori');
+  toast({ sat: 'Mappa satellitare di giorno', night: 'Mappa notturna: le luci delle città', pol: 'Mappa politica a colori' }[mapMode]);
 };
 
 function boot(data) {
