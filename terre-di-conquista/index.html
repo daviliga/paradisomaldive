@@ -431,7 +431,7 @@ const RECRUIT = 1000, RECRUIT_COST = 20;
 const NUKE_PROGRAM_COST = 400, NUKE_PROGRAM_DAYS = 240, NUKE_COST = 120, RAD_DAYS = 360, TRUCE_DAYS = 300;
 // today's nuclear powers start with a (scaled-down) arsenal
 const START_NUKES = { US: 12, RU: 12, CN: 6, FR: 4, GB: 4, IN: 3, PK: 3, IL: 2, KP: 2 };
-const MAX_ZOOM = 8;
+const MAX_ZOOM = 22;   // close enough to look at a single city
 const LAND_SPEED = 12, SEA_SPEED = 40, AIR_SPEED = 160;  // map units per day
 const AIR_RANGE = 220;                                    // how far planes fly from their base
 const SPEEDS = [0, 0.5, 1, 2];                            // game days per real second
@@ -776,29 +776,24 @@ function startForces(n) {
 function initialState() {
   const p = W.provs.map(p => {
     const eco = ecoFromPop(p.pop);
-    const army = p.cap ? 2500 + eco * 400 : 300 + eco * 200;
-    // barracks in the capital and big cities, an airport in the capital, ports in big coastal cities
-    return { owner: p.country, army, fgt: 0, bmb: 0, ships: 0, mis: 0, eco, fort: p.cap ? 1 : 0, rad: -1, hit: -1, sup: 1,
+    // nobody starts with armed forces: only barracks, airports and ports; every country buys its forces over time
+    return { owner: p.country, army: 0, fgt: 0, bmb: 0, ships: 0, mis: 0, eco, fort: p.cap ? 1 : 0, rad: -1, hit: -1, sup: 1,
       bar: p.cap || eco >= 3 ? 1 : 0, apt: p.cap ? 1 : 0, port: p.coastal && (p.cap || eco >= 3) ? 1 : 0,
-      tnk: p.cap ? 10 : 0, sub: 0, car: 0, aa: p.cap ? 1 : 0, abm: 0, xp: 0 };
+      tnk: 0, sub: 0, car: 0, aa: 0, abm: 0, xp: 0 };
   });
   const n = W.nations.map(x => {
+    // today's nuclear powers keep the know-how (they can build warheads at once) but start with none
     const nk = START_NUKES[WD.countries[x.id].a] || 0;
     if (x.size) {
-      // air force at the capital, fleet in the main port
-      const f = startForces(x), cap = x.capital;
-      p[cap].fgt = Math.ceil(f.air * 0.6); p[cap].bmb = Math.floor(f.air * 0.4); p[cap].mis = Math.round(f.air / 5);
+      const cap = x.capital;
       const port = W.provs[cap].sp ? cap : W.provs.filter(q => q.country === x.id && q.sp).sort((a, b) => provDist(a.id, cap) - provDist(b.id, cap))[0]?.id;
-      const a2 = WD.countries[x.id].a;
-      if (port !== undefined && f.navy) { p[port].ships = f.navy; p[port].port = 1; p[port].sub = START_SUB[a2] || 0; p[port].car = START_CAR[a2] || 0; }
-      if (START_MIL[a2]) p[cap].tnk = Math.round(START_MIL[a2][0] * 1.5);
-      if ((START_TECH[a2] || []).includes('abm')) p[cap].abm = 1;
+      if (port !== undefined && startForces(x).navy) p[port].port = 1;
       if (START_MIL[WD.countries[x.id].a]) {
         // major powers have a few more air bases
         W.provs.filter(q => q.country === x.id && !q.cap).sort((a, b) => b.pop - a.pop).slice(0, 2).forEach(q => { p[q.id].apt = 1; });
       }
     }
-    return { gold: 60, alive: x.size > 0, capital: x.capital, wars: [], since: {}, allies: [], nukes: nk, prog: nk ? 0 : -1, tech: (START_TECH[WD.countries[x.id].a] || []).slice(),
+    return { gold: 100, alive: x.size > 0, capital: x.capital, wars: [], since: {}, allies: [], nukes: 0, prog: nk ? 0 : -1, tech: (START_TECH[WD.countries[x.id].a] || []).slice(),
       tax: 1, draft: false, rb: 10, rp: 0, res: '', stab: 70, mood: 0, sanc: 0, intel: {}, stock: { oil: 40, steel: 40, food: 40 }, short: {} };
   });
   const rel = W.nations.map(() => Math.round(Math.random() * 30 - 10));
@@ -847,7 +842,7 @@ function applyScenario(k) {
     for (const [a, k, g] of [['RU', 1.5, 150], ['UA', 4, 400], ['IL', 2, 150], ['IR', 2, 150]]) {
       const n = natA2(a); if (n < 0) continue;
       G.n[n].gold += g;
-      for (const i of provsOf(n)) { G.p[i].army = Math.round(G.p[i].army * k / 10) * 10; G.p[i].fort = Math.max(G.p[i].fort, a === 'UA' ? 1 : 0); }
+      for (const i of provsOf(n)) { G.p[i].army = Math.round((500 + G.p[i].eco * 250) * k / 10) * 10; G.p[i].fort = Math.max(G.p[i].fort, a === 'UA' ? 1 : 0); }
     }
   } else if (k === 'cold') {
     allyAll(['US', 'CA', 'GB', 'FR', 'DE', 'IT', 'NL', 'BE', 'NO', 'DK', 'PT', 'TR', 'GR', 'ES', 'JP', 'KR', 'AU']);
@@ -2114,6 +2109,20 @@ function aiTick(n) {
     const cap = me.capital;
     if (G.p[cap].owner === n && G.p[cap].aa < (hasTech(n, 'aa2') ? 2 : 1) && me.gold > 150 && Math.random() < 0.1) { me.gold -= AA_COST[G.p[cap].aa]; G.p[cap].aa++; }
     if (G.p[cap].owner === n && hasTech(n, 'abm') && !G.p[cap].abm && me.gold > ABM_COST + 100 && Math.random() < 0.05) { me.gold -= ABM_COST; G.p[cap].abm = 1; }
+  }
+  // in peace the armed forces are built up slowly, as the budget allows
+  if (!me.wars.length && Math.random() < 0.4) {
+    const apt = owned.find(i => G.p[i].apt), port = owned.find(i => G.p[i].port), bar = owned.find(i => G.p[i].bar), r = Math.random();
+    const buy = (cost, fn) => { if (me.gold >= cost) { me.gold -= cost; fn(); } };
+    if (r < 0.3 && bar !== undefined) buy(TANK_COST, () => { G.p[bar].tnk += TANK_BATCH; });
+    else if (r < 0.55 && apt !== undefined) buy(FGT_COST, () => G.p[apt].fgt++);
+    else if (r < 0.7 && apt !== undefined) buy(BMB_COST, () => G.p[apt].bmb++);
+    else if (r < 0.85 && port !== undefined) buy(SHIP_COST, () => G.p[port].ships++);
+    else if (r < 0.9 && port !== undefined && hasTech(n, 'subs')) buy(SUB_COST, () => G.p[port].sub++);
+    else if (r < 0.93 && port !== undefined && hasTech(n, 'carrier')) buy(CAR_COST, () => G.p[port].car++);
+    else if (bar !== undefined) buy(MIS_COST, () => G.p[bar].mis++);
+    const cap = me.capital;
+    if (G.p[cap].owner === n && !G.p[cap].aa && me.gold > 200 && Math.random() < 0.1) { me.gold -= AA_COST[0]; G.p[cap].aa = 1; }
   }
   if (me.gold > 220 && Math.random() < 0.05) {
     const front = owned.filter(i => !G.p[i].bar && W.provs[i].nb.some(j => G.p[j].owner !== n));
@@ -3532,51 +3541,239 @@ function drawRails(s) {
   }
   ctx.restore();
 }
-// ---------- cities: built-up areas that grow with the economy, lights at night, ruins after a nuclear strike ----------
-const cityCache = [];
-const cityR = i => Math.min(10, 1.5 + Math.sqrt(W.provs[i].pop / 1e6) * 2.4);
-function cityOf(i) {
-  if (cityCache[i]) return cityCache[i];
-  const r = cityR(i), n = Math.min(150, Math.round(12 + r * r * 5)), blocks = [];
-  for (let k = 0; k < n; k++) {
-    const rr = r * Math.pow(hash01(i * 17 + k, 11), 0.65), th = hash01(i * 29 + k, 12) * Math.PI * 2, g = 0.42;
-    blocks.push([Math.round(Math.cos(th) * rr / g) * g, Math.round(Math.sin(th) * rr * 0.85 / g) * g, 0.2 + hash01(i + k * 3, 13) * 0.17, 0.2 + hash01(i + k * 5, 14) * 0.17, Math.floor(hash01(i * 3 + k, 15) * 5)]);
+// ---------- cities seen from the air: downtown towers, neighbourhoods, industry, parks, and fields and woods around ----------
+// each city is painted once into its own small canvas at the needed detail and reused until the zoom or the city changes
+const cityR = i => Math.min(15, 2 + Math.sqrt(W.provs[i].pop / 1e6) * 4.5);
+function rng(seed) { let a = seed >>> 0; return () => { a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+const FIELDS = ['#7f924b', '#9ba659', '#b9a660', '#6d8945', '#a98e57', '#8b9b52', '#c3b26b', '#647f3e', '#94884f'];
+const ROOFS = ['#b7a58e', '#a0745c', '#c2b8a8', '#8e8b86', '#9c6b52', '#c9c3b8', '#7f7a74'];
+const HOUSES = ['#9c5b45', '#7d6b5e', '#b9b2a6', '#6d6a66', '#a8735a', '#8b4f3c'];
+const GLASS = [['#c9d3db', '#5b6b79'], ['#a9bccb', '#4c5d6c'], ['#d8d5cf', '#6e6a64'], ['#b8c4bd', '#53625d']];
+function renderCity(i, ppu, night, ruined, k) {
+  const R = cityR(i) * k, E = R * 1.9, size = Math.max(8, Math.ceil(2 * E * ppu));
+  const cv = document.createElement('canvas'); cv.width = cv.height = size;
+  const c = cv.getContext('2d');
+  c.scale(size / (2 * E), size / (2 * E)); c.translate(E, E);
+  const r = rng(i * 9973 + 17), ang = r() * Math.PI, detail = ppu;
+  // a wobbly outline, so no city is a circle
+  const wob = []; for (let j = 0; j < 16; j++) wob.push(0.78 + r() * 0.45);
+  const edge = th => { const f = (((th / (Math.PI * 2)) % 1) + 1) % 1 * 16, j = Math.floor(f), t = f - j; return R * (wob[j] * (1 - t) + wob[(j + 1) % 16] * t); };
+  // 1. farmland around the city: parcels of long fields, each parcel ploughed in its own direction, with hedgerows and woods
+  if (!night) {
+    const P = 2.2;
+    for (let py = -E; py < E; py += P) for (let px = -E; px < E; px += P) {
+      const pcx = px + P / 2, pcy = py + P / 2, d = Math.hypot(pcx, pcy);
+      if (d > E + P || d < R * 0.55) continue;
+      c.save(); c.beginPath(); c.rect(px, py, P, P); c.clip();
+      c.translate(pcx, pcy); c.rotate(ang + (r() - 0.5) * 1.2);
+      const forest = r() < 0.16;
+      for (let y = -P; y < P; y += 0.26 + r() * 0.12) {
+        const h = 0.24 + r() * 0.1;
+        for (let x = -P; x < P;) {
+          const w = 0.5 + r() * 0.9, gx = pcx + x, gy = pcy + y, dd = Math.hypot(gx, gy);
+          const fade = Math.max(0, Math.min(1, (E - dd) / (E * 0.45))) * Math.min(1, (dd - R * 0.6) / (R * 0.3));
+          if (fade > 0.02) {
+            c.globalAlpha = 0.5 * fade * (ruined ? 0.35 : 1);
+            if (forest || r() < 0.06) {
+              c.fillStyle = '#3a522d';
+              for (let q = 0; q < 4; q++) { c.beginPath(); c.arc(x + r() * w, y + r() * h, 0.08 + r() * 0.12, 0, 7); c.fill(); }
+            } else {
+              c.fillStyle = FIELDS[Math.floor(r() * FIELDS.length)]; c.fillRect(x, y, w, h);
+              c.strokeStyle = 'rgba(52, 66, 36, 0.55)'; c.lineWidth = 0.025; c.strokeRect(x, y, w, h);
+            }
+          }
+          x += w;
+        }
+      }
+      c.restore();
+    }
+    c.globalAlpha = 1;
   }
-  return (cityCache[i] = { r, ang: hash01(i, 9) * Math.PI, blocks });
+  // 2. motorways leaving the city
+  const roads = 3 + Math.floor(r() * 3);
+  c.lineCap = 'round';
+  for (let j = 0; j < roads; j++) {
+    const a = ang + j * Math.PI * 2 / roads + (r() - 0.5) * 0.6, bend = (r() - 0.5) * 0.7;
+    c.beginPath(); c.moveTo(0, 0); c.quadraticCurveTo(Math.cos(a + bend) * E * 0.5, Math.sin(a + bend) * E * 0.5, Math.cos(a) * E, Math.sin(a) * E);
+    c.strokeStyle = night ? 'rgba(255, 176, 80, 0.55)' : 'rgba(70, 72, 75, 0.9)'; c.lineWidth = 0.2; c.stroke();
+    if (!night) { c.strokeStyle = '#a4a6a7'; c.lineWidth = 0.11; c.stroke(); }
+  }
+  // 3. the built-up area: districts, each with its own street grid, like a real city grown over time
+  const SECT = 5, TAU = Math.PI * 2, sect = [];
+  for (let k = 0; k < SECT; k++) sect.push(ang + (r() - 0.5) * 0.9 + (k % 2 ? 0.4 : 0));
+  const ind = r() * TAU, lim = R * 1.35, towers = [];
+  for (let k = 0; k < SECT; k++) {
+    const a = sect[k], ca = Math.cos(a), sa = Math.sin(a), th0 = ang + k / SECT * TAU;
+    const up = [-Math.sin(a), -Math.cos(a)];                                                  // "up" on the screen, in this grid's frame
+    const sh = [0.55 * Math.cos(a) + 0.3 * Math.sin(a), -0.55 * Math.sin(a) + 0.3 * Math.cos(a)];  // shadows fall to the south-east
+    c.save(); c.rotate(a);
+    const g = 0.62;
+    for (let gy = -lim; gy < lim; gy += g) for (let gx = -lim; gx < lim; gx += g) {
+      const mx = gx + g / 2, my = gy + g / 2, cx = mx * ca - my * sa, cy = mx * sa + my * ca, d = Math.hypot(cx, cy);
+      const th = Math.atan2(cy, cx), rel = (((th - th0) % TAU) + TAU) % TAU;
+      // the historic centre belongs to the first district, the rest is split by direction
+      if (d <= R * 0.25 ? k !== 0 : rel >= TAU / SECT) continue;
+      const e = edge(th);
+      if (d > e) continue;
+      const z = d / e;
+      if (z > 0.8 && r() < (z - 0.8) / 0.2) continue;    // the city thins out at its edge
+      const ix = Math.round(gx / g), iy = Math.round(gy / g), arterial = ix % 3 === 0 || iy % 3 === 0;
+      const st = arterial ? 0.075 : 0.042, lx = gx + st, ly = gy + st, lw = g - st * 2;
+      const dz = Math.abs(((th - ind + Math.PI * 3) % TAU) - Math.PI);
+      const zone = r() < 0.05 && z > 0.2 ? 'park' : z < 0.28 ? 'down' : dz < 0.45 && z > 0.35 ? 'ind' : z < 0.62 ? 'mid' : 'sub';
+      if (night) {
+        if (ruined) continue;
+        // street lights along the roads, blocks glowing brighter towards the centre
+        c.fillStyle = arterial ? 'rgba(255, 186, 96, 0.85)' : 'rgba(255, 176, 86, 0.45)';
+        c.fillRect(gx, gy, g, st); c.fillRect(gx, gy, st, g);
+        c.fillStyle = `rgba(255, 205, 130, ${0.1 + (1 - z) * 0.35})`; c.fillRect(lx, ly, lw, lw);
+        for (let q = 0; q < (zone === 'down' ? 6 : 3); q++) if (r() < 0.75) { c.fillStyle = '#ffe2a8'; c.fillRect(lx + r() * (lw - 0.04), ly + r() * (lw - 0.04), 0.035, 0.035); }
+        continue;
+      }
+      c.fillStyle = '#66686a'; c.fillRect(gx, gy, g + 0.003, g + 0.003);
+      if (arterial && detail > 12) { c.fillStyle = 'rgba(235, 232, 220, 0.45)'; c.fillRect(gx, gy + st / 2 - 0.004, g, 0.008); c.fillRect(gx + st / 2 - 0.004, gy, 0.008, g); }
+      if (ruined) { c.fillStyle = r() < 0.5 ? '#2a2521' : '#3a332c'; c.fillRect(lx, ly, lw, lw); continue; }
+      if (zone === 'park') {
+        c.fillStyle = '#5b8a3f'; c.fillRect(lx, ly, lw, lw);
+        if (detail > 8) {
+          c.strokeStyle = 'rgba(214, 200, 160, 0.7)'; c.lineWidth = 0.02; c.beginPath(); c.moveTo(lx, ly + lw * r()); c.quadraticCurveTo(lx + lw / 2, ly + lw * r(), lx + lw, ly + lw * r()); c.stroke();
+          c.fillStyle = '#3c5f2e'; for (let q = 0; q < 14; q++) { c.beginPath(); c.arc(lx + r() * lw, ly + r() * lw, 0.025 + r() * 0.025, 0, 7); c.fill(); }
+        }
+        continue;
+      }
+      const lotCol = zone === 'sub' ? '#76904f' : zone === 'ind' ? '#8a8478' : zone === 'down' ? '#8f8c88' : '#7d8768';
+      c.fillStyle = lotCol; c.fillRect(lx, ly, lw, lw);
+      if (detail < 5) continue;
+      if (zone === 'mid') {
+        // perimeter blocks: rows of buildings along the streets around a green courtyard
+        const dd = 0.11;
+        for (const [ex, ey, horiz, len] of [[lx, ly, true, lw], [lx, ly + lw - dd, true, lw], [lx, ly + dd, false, lw - dd * 2], [lx + lw - dd, ly + dd, false, lw - dd * 2]]) {
+          for (let t = 0; t < len - 0.03;) {
+            const seg = Math.min(len - t, 0.07 + r() * 0.09), col = ROOFS[Math.floor(r() * ROOFS.length)];
+            const bx = horiz ? ex + t : ex, by = horiz ? ey : ey + t, bw = horiz ? seg - 0.004 : dd, bh = horiz ? dd : seg - 0.004;
+            if (detail < 10) { c.fillStyle = col; c.fillRect(bx, by, bw, bh); }
+            else box(c, bx, by, bw, bh, 0.05 + r() * 0.06, [col, shade(col, 0.7)], up, sh, false, r);
+            t += seg;
+          }
+        }
+      } else if (zone === 'sub') {
+        // houses in rows along the streets, with gardens and trees
+        for (const row of [ly + 0.03, ly + lw - 0.1]) for (let t = lx + 0.02; t < lx + lw - 0.07; t += 0.1 + r() * 0.03) {
+          const col = HOUSES[Math.floor(r() * HOUSES.length)];
+          if (detail < 10) { c.fillStyle = col; c.fillRect(t, row, 0.07, 0.065); }
+          else box(c, t, row, 0.07, 0.065, 0.03, [col, shade(col, 0.68)], up, sh, false, r);
+        }
+        if (detail > 8) { c.fillStyle = '#3e6130'; for (let q = 0; q < 4; q++) { c.beginPath(); c.arc(lx + r() * lw, ly + lw * (0.35 + r() * 0.3), 0.03, 0, 7); c.fill(); } }
+      } else if (zone === 'ind') {
+        const n = 2 + Math.floor(r() * 2);
+        for (let q = 0; q < n; q++) {
+          const w = 0.16 + r() * 0.16, h = 0.12 + r() * 0.12, bx = lx + r() * (lw - w), by = ly + r() * (lw - h);
+          const cols = [['#a3a7aa', '#7d8286'], ['#b2a790', '#857c69'], ['#8a979b', '#66757a'], ['#c0c3c5', '#8e9295']][Math.floor(r() * 4)];
+          if (detail < 10) { c.fillStyle = cols[0]; c.fillRect(bx, by, w, h); } else box(c, bx, by, w, h, 0.06, cols, up, sh, false, r);
+        }
+      } else {
+        // downtown: towers of glass and stone on paved plazas
+        const n = 1 + Math.floor(r() * 3);
+        for (let q = 0; q < n; q++) {
+          const w = 0.13 + r() * 0.14, h = 0.13 + r() * 0.14, bx = lx + r() * (lw - w), by = ly + r() * (lw - h);
+          const H = (0.35 + (1 - z / 0.28) * 1.7) * (0.55 + r() * 0.9);
+          towers.push({ a, up, sh, bx, by, w, h, H, cols: GLASS[Math.floor(r() * GLASS.length)], y: (bx + w / 2) * sa + (by + h / 2) * ca });
+        }
+      }
+    }
+    c.restore();
+  }
+  // towers last, from the back of the picture to the front, so the taller ones overlap correctly
+  towers.sort((p, q) => p.y - q.y);
+  for (const t of towers) { c.save(); c.rotate(t.a); box(c, t.bx, t.by, t.w, t.h, t.H, night ? ['#2b313a', '#191d24'] : t.cols, t.up, t.sh, night, r, true); c.restore(); }
+  if (ruined) {
+    const gr = c.createRadialGradient(0, 0, 0, 0, 0, R * 1.3);
+    gr.addColorStop(0, 'rgba(15, 10, 6, 0.75)'); gr.addColorStop(1, 'rgba(15, 10, 6, 0)');
+    c.fillStyle = gr; c.beginPath(); c.arc(0, 0, R * 1.3, 0, 7); c.fill();
+  }
+  if (night && !ruined) {
+    const gr = c.createRadialGradient(0, 0, 0, 0, 0, R * 1.6);
+    gr.addColorStop(0, 'rgba(255, 190, 100, 0.35)'); gr.addColorStop(1, 'rgba(255, 160, 60, 0)');
+    c.globalCompositeOperation = 'lighter'; c.fillStyle = gr; c.beginPath(); c.arc(0, 0, R * 1.6, 0, 7); c.fill();
+  }
+  return { cv, E };
 }
-const CITY_COL = ['#b3ada4', '#96918b', '#c8c0b2', '#85827e', '#d2ccc2'];
+function shade(hex, k) { const v = parseInt(hex.slice(1), 16); return `rgb(${Math.round((v >> 16 & 255) * k)}, ${Math.round((v >> 8 & 255) * k)}, ${Math.round((v & 255) * k)})`; }
+// a building seen slightly from the south: its shadow, its south wall and its roof lifted by its height
+function box(c, x, y, w, h, H, [roof, wall], up, sh, night, r, tower) {
+  const lift = H * 0.5, ux = up[0] * lift, uy = up[1] * lift;
+  if (!night) { c.fillStyle = 'rgba(10, 12, 14, 0.38)'; c.beginPath(); c.moveTo(x, y); c.lineTo(x + w, y); c.lineTo(x + w + sh[0] * H, y + sh[1] * H); c.lineTo(x + w + sh[0] * H, y + h + sh[1] * H); c.lineTo(x + sh[0] * H, y + h + sh[1] * H); c.lineTo(x, y + h); c.closePath(); c.fill(); }
+  // the walls: the box swept from the ground up to the roof
+  c.fillStyle = wall;
+  c.beginPath();
+  const pts = [[x, y], [x + w, y], [x + w, y + h], [x, y + h]];
+  for (let k = 0; k < 4; k++) {
+    const a = pts[k], b = pts[(k + 1) % 4];
+    c.moveTo(a[0], a[1]); c.lineTo(b[0], b[1]); c.lineTo(b[0] + ux, b[1] + uy); c.lineTo(a[0] + ux, a[1] + uy); c.closePath();
+  }
+  c.fill();
+  if (tower && !night && H > 0.4) {
+    // rows of windows on the walls
+    c.strokeStyle = 'rgba(220, 230, 240, 0.25)'; c.lineWidth = 0.008;
+    for (let f = 0.15; f < 1; f += 0.15) { c.beginPath(); c.moveTo(x + ux * f, y + h + uy * f); c.lineTo(x + w + ux * f, y + h + uy * f); c.stroke(); }
+  }
+  if (night) {
+    c.fillStyle = 'rgba(255, 214, 140, 0.85)';
+    const n = tower ? 6 : 2;
+    for (let q = 0; q < n; q++) if (r() < 0.6) { const f = r(); c.fillRect(x + r() * w * 0.8 + ux * f, y + h * 0.5 + r() * h * 0.5 + uy * f, 0.012, 0.012); }
+  }
+  c.fillStyle = roof; c.fillRect(x + ux, y + uy, w, h);
+  if (!night) { c.fillStyle = 'rgba(255, 255, 255, 0.14)'; c.fillRect(x + ux, y + uy, w, h * 0.4); }
+}
+// a small cache of painted cities, kept under a fixed number of pixels so phones do not run out of memory
+const cityImgs = new Map();
+let cityPixels = 0, cityClock = 0;
+const CITY_PIXELS = 20e6, CITY_MAX = 1400;
+function cityImage(i, ppu, night, ruined, k, allowNew) {
+  const key = i + '|' + ppu + '|' + k + '|' + night + '|' + ruined;
+  let e = cityImgs.get(key);
+  if (e) { e.used = ++cityClock; return e; }
+  if (!allowNew) {
+    // a coarser picture of the same city stands in until the sharp one is ready
+    for (const p of [ppu / 2, ppu / 4, ppu * 2]) { const f = cityImgs.get(i + '|' + p + '|' + k + '|' + night + '|' + ruined); if (f) return f; }
+    return null;
+  }
+  e = renderCity(i, ppu, night, ruined, k);
+  e.used = ++cityClock; e.px = e.cv.width * e.cv.height;
+  cityImgs.set(key, e); cityPixels += e.px;
+  while (cityPixels > CITY_PIXELS && cityImgs.size > 1) {
+    let oldK = null, old = Infinity;
+    for (const [kk, v] of cityImgs) if (v.used < old) { old = v.used; oldK = kk; }
+    cityPixels -= cityImgs.get(oldK).px; cityImgs.delete(oldK);
+  }
+  return e;
+}
 function drawCities(s, night) {
-  if (s < 0.8) return;
+  if (s < 0.7) return;
+  const t0 = performance.now();
+  ctx.save(); ctx.clip(landPath(), 'evenodd');
+  let pending = false;
   for (let i = 0; i < W.provs.length; i++) {
     const pr = W.provs[i];
     if (!visible(pr.bb)) continue;
-    const C = cityOf(i), k = 0.75 + G.p[i].eco * 0.07;
-    if (C.r * k * s < 2.5) continue;
+    const k = Math.round((0.75 + G.p[i].eco * 0.07) * 100) / 100, R = cityR(i) * k, E = R * 1.9;
+    if (R * s < 2.5) continue;
+    // detail level: pixels per map unit, in steps, never more than CITY_MAX pixels per city
+    let ppu = 2; while (ppu < s * dpr && ppu < 128) ppu *= 2;
+    const cap = s > 8 ? 2048 : CITY_MAX;   // the city you are flying over gets a sharper picture
+    while (ppu > 2 && 2 * E * ppu > cap) ppu /= 2;
     const ruined = radLeft(i) > 0;
-    ctx.save(); ctx.translate(pr.c[0], pr.c[1]); ctx.rotate(C.ang); ctx.scale(k, k);
-    ctx.globalAlpha = Math.min(1, (C.r * k * s - 2.5) / 4);
-    if (night) {
-      if (!ruined) {
-        const g = ctx.createRadialGradient(0, 0, 0, 0, 0, C.r * 1.8);
-        g.addColorStop(0, 'rgba(255, 196, 110, 0.5)'); g.addColorStop(1, 'rgba(255, 160, 60, 0)');
-        ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, 0, C.r * 1.8, 0, 7); ctx.fill();
-        ctx.fillStyle = '#ffd48a';
-        for (const b of C.blocks) if (b[4] % 2 === 0) ctx.fillRect(b[0], b[1], b[2] * 0.55, b[3] * 0.55);
-      }
-    } else {
-      groundPatch(0, 0, C.r * 1.45, C.r * 1.25, ruined ? 'rgba(40, 34, 28, 0.6)' : 'rgba(150, 142, 130, 0.55)');
-      ctx.strokeStyle = 'rgba(95, 90, 84, 0.8)'; ctx.lineWidth = hair(0.12);
-      ctx.beginPath(); ctx.ellipse(0, 0, C.r * 0.95, C.r * 0.8, 0, 0, 7);
-      for (let a = 0; a < 4; a++) { ctx.moveTo(0, 0); ctx.lineTo(Math.cos(a * 1.57 + 0.3) * C.r * 1.3, Math.sin(a * 1.57 + 0.3) * C.r * 1.1); }
-      ctx.stroke();
-      for (const b of C.blocks) {
-        if (ruined && (b[4] & 1)) continue;
-        ctx.fillStyle = ruined ? '#2c2723' : CITY_COL[b[4]];
-        ctx.fillRect(b[0] - b[2] / 2, b[1] - b[3] / 2, b[2], b[3]);
-      }
-    }
+    const img = cityImage(i, ppu, night, ruined, k, performance.now() - t0 < 60);
+    if (!img) { pending = true; continue; }
+    ctx.save();
+    ctx.globalAlpha = Math.min(1, (R * s - 2.5) / 5);
+    ctx.drawImage(img.cv, pr.c[0] - img.E, pr.c[1] - img.E, img.E * 2, img.E * 2);
     ctx.restore();
+    if (img !== cityImgs.get(i + '|' + ppu + '|' + k + '|' + night + '|' + ruined)) pending = true;
   }
+  ctx.restore();
+  // some cities still need their sharp picture: paint them on the next pass
+  if (pending) setTimeout(() => { staticDirty = true; requestRender(); }, 30);
 }
 // ---------- freight trains running on the railways ----------
 function drawTrains() {
@@ -4972,7 +5169,7 @@ $('startBtn').onclick = () => {
   updateDefcon(true);
   startPlay(); save();
   const wars = G.n[G.player].wars.filter(w => G.n[w].alive);
-  toast(`Governi ${fullName(pickNation)}.${wars.length ? ` Sei già in guerra con ${wars.map(fullName).join(', ')}!` : ' Il tempo scorre: buona fortuna.'}`, wars.length ? 'bad' : 'good');
+  toast(`Governi ${fullName(pickNation)}.${wars.length ? ` Sei già in guerra con ${wars.map(fullName).join(', ')}!` : ' Nessun paese ha ancora forze armate: arruolale in caserma, aeroporto e porto prima degli altri.'}`, wars.length ? 'bad' : 'good');
   if (!tutorialDone()) startTutorial();
 };
 $('loadBtn').onclick = () => showSlots(false);
